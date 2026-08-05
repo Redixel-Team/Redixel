@@ -1,0 +1,29 @@
+[workspace]
+resolver = "2"
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[package]
+name = "solar_system"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[package.metadata.game]
+title = "Solar System"
+description = "A miniature solar system: orbits computed on the CPU, sun and star field pulsing on the GPU via the global time uniform."
+tags = ["3D", "Uniforms", "Shaders"]
+
+[lib]
+crate-type = ["cdylib", "staticlib", "rlib"]
+
+[dependencies]
+# Internal crates
+redixel = { path = "../../crates/redixel" }
+
+# External crates
+log = "0.4"

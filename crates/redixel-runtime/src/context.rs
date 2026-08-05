@@ -12,6 +12,7 @@ use redixel_platform::InputManager;
 #[non_exhaustive]
 pub enum DrawCommand {
     ClearColor(Color),
+    Glow(f32),
     Rect {
         position: Vec2,
         size: Vec2,
@@ -34,6 +35,10 @@ pub enum DrawCommand {
         p2: Vec3,
         p3: Vec3,
         color: Color,
+    },
+    Triangle3dShaded {
+        points: [Vec3; 3],
+        colors: [Color; 3],
     },
     Triangle3dTextured {
         points: [Vec3; 3],
@@ -65,6 +70,7 @@ pub struct Context<A: InputAction> {
     should_exit: bool,
     error: Option<RedixelError>,
     delta_time: f64,
+    elapsed_time: f64,
     fps: f64,
     fixed_delta: f64,
     fixed_tick: u64,
@@ -90,6 +96,7 @@ impl<A: InputAction> Context<A> {
             should_exit: false,
             error: None,
             delta_time: 0.0,
+            elapsed_time: 0.0,
             fps: 0.0,
             fixed_delta: 0.0,
             fixed_tick: 0,
@@ -127,6 +134,12 @@ impl<A: InputAction> Context<A> {
     pub(crate) fn update_timing(&mut self, delta_time: f64, fps: f64) {
         self.delta_time = delta_time;
         self.fps = fps;
+    }
+
+    /// Publishes the wall clock the renderer also feeds the shader. Called once
+    /// per frame, before any game callback runs.
+    pub(crate) fn set_elapsed(&mut self, elapsed_time: f64) {
+        self.elapsed_time = elapsed_time;
     }
 
     /// Sets the fixed-step timing values. Called before each `on_fixed_update`.
@@ -207,6 +220,10 @@ impl<A: InputAction> GameContext<A> for Context<A> {
         self.delta_time
     }
 
+    fn elapsed_time(&self) -> f64 {
+        self.elapsed_time
+    }
+
     fn fixed_delta(&self) -> f64 {
         self.fixed_delta
     }
@@ -264,6 +281,12 @@ impl<A: InputAction> GameContext<A> for Context<A> {
         self.commands.push(DrawCommand::ClearColor(color));
     }
 
+    fn set_glow(&mut self, amount: f32) {
+        self.commands
+            .retain(|c: &DrawCommand| !matches!(c, DrawCommand::Glow(..)));
+        self.commands.push(DrawCommand::Glow(amount));
+    }
+
     fn draw_triangle(&mut self, p1: Vec2, p2: Vec2, p3: Vec2, color: Color) {
         self.commands.push(DrawCommand::Triangle { p1, p2, p3, color });
     }
@@ -287,6 +310,10 @@ impl<A: InputAction> GameContext<A> for Context<A> {
 
     fn draw_triangle_3d(&mut self, p1: Vec3, p2: Vec3, p3: Vec3, color: Color) {
         self.commands.push(DrawCommand::Triangle3d { p1, p2, p3, color });
+    }
+
+    fn draw_triangle_3d_shaded(&mut self, points: [Vec3; 3], colors: [Color; 3]) {
+        self.commands.push(DrawCommand::Triangle3dShaded { points, colors });
     }
 
     fn draw_triangle_3d_textured(&mut self, points: [Vec3; 3], uvs: [Vec2; 3], texture: TextureId) {

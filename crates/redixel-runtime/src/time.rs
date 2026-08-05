@@ -49,6 +49,7 @@ pub struct TimeManager {
     accumulator: f64,
     max_substeps: u32,
     fixed_tick: u64,
+    elapsed: f64,
 }
 
 impl TimeManager {
@@ -67,6 +68,7 @@ impl TimeManager {
             accumulator: 0.0,
             max_substeps: DEFAULT_MAX_SUBSTEPS,
             fixed_tick: 0,
+            elapsed: 0.0,
         }
     }
 
@@ -102,7 +104,12 @@ impl TimeManager {
     /// Call once per frame (after measuring the frame delta). Excess time beyond
     /// `max_substeps` worth of steps is discarded so a hitch can never trigger
     /// an unbounded catch-up burst.
+    ///
+    /// The wall clock read by [`elapsed_time`](Self::elapsed_time) advances here
+    /// too, and takes the delta whole: the clamp exists to bound simulation
+    /// catch-up, not to pretend a stalled frame took less time than it did.
     pub fn accumulate(&mut self, frame_delta: f64) {
+        self.elapsed += frame_delta;
         self.accumulator += frame_delta;
         self.clamp_accumulator();
     }
@@ -144,6 +151,17 @@ impl TimeManager {
     /// Monotonic count of fixed steps consumed since startup.
     pub fn fixed_tick(&self) -> u64 {
         self.fixed_tick
+    }
+
+    /// Seconds of real time since startup, summed from every frame delta fed to
+    /// [`accumulate`](Self::accumulate).
+    ///
+    /// Unlike [`fixed_tick`](Self::fixed_tick) it advances continuously rather
+    /// than in discrete steps, which is what a shader animation or any
+    /// wall-clock-driven visual needs; unlike [`delta_time`](Self::delta_time)
+    /// it is absolute rather than per-frame.
+    pub fn elapsed_time(&self) -> f64 {
+        self.elapsed
     }
 
     /// Fraction `[0, 1)` of the way into the next fixed step, for interpolating
@@ -283,6 +301,33 @@ mod tests {
 
         tm.set_target_fps(-1.0);
         assert_eq!(tm.frame_target, 0.0);
+    }
+
+    #[test]
+    fn elapsed_time_sums_frame_deltas() {
+        let mut tm: TimeManager = TimeManager::new();
+        const EPS: f64 = 1e-9;
+
+        assert_eq!(tm.elapsed_time(), 0.0);
+
+        for _ in 0..10 {
+            tm.accumulate(0.016);
+        }
+
+        assert!((tm.elapsed_time() - 0.16).abs() < EPS, "elapsed={}", tm.elapsed_time());
+    }
+
+    #[test]
+    fn elapsed_time_keeps_time_the_accumulator_clamps() {
+        let mut tm: TimeManager = TimeManager::new();
+        const EPS: f64 = 1e-9;
+
+        tm.set_tickrate(60.0);
+        tm.set_max_substeps(8);
+        tm.accumulate(5.0);
+
+        assert!(tm.accumulator < 5.0, "accumulator should be clamped, got {}", tm.accumulator);
+        assert!((tm.elapsed_time() - 5.0).abs() < EPS, "elapsed={}", tm.elapsed_time());
     }
 
     #[test]

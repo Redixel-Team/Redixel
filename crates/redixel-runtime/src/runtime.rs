@@ -397,6 +397,9 @@ impl<G: Game> Runtime<G> {
                 DrawCommand::ClearColor(c) => {
                     state.renderer.set_clear_color(c);
                 }
+                DrawCommand::Glow(amount) => {
+                    state.renderer.set_glow(amount);
+                }
                 DrawCommand::Rect { position, size, color } => {
                     state.renderer.draw_rect(position, size, color);
                 }
@@ -414,6 +417,9 @@ impl<G: Game> Runtime<G> {
                 DrawCommand::Triangle3d { p1, p2, p3, color } => {
                     state.renderer.draw_triangle_3d(p1, p2, p3, color);
                 }
+                DrawCommand::Triangle3dShaded { points, colors } => {
+                    state.renderer.draw_triangle_3d_shaded(points, colors);
+                }
                 DrawCommand::Triangle3dTextured {
                     points,
                     uvs,
@@ -425,7 +431,7 @@ impl<G: Game> Runtime<G> {
             }
         }
 
-        match state.renderer.render() {
+        match state.renderer.render(state.sim.time.elapsed_time() as f32) {
             Ok(()) => {}
             Err(RedixelError::SurfaceIgnored) => {}
             Err(RedixelError::SurfaceNeedsReconfiguration) => {
@@ -622,6 +628,23 @@ mod tests {
             .collect();
 
         assert_eq!(clears.len(), 1);
+    }
+
+    #[test]
+    fn context_glow_deduplicates() {
+        let mut ctx: Context<()> = Context::new();
+
+        ctx.set_glow(0.3);
+        ctx.set_glow(0.8);
+
+        let glows: Vec<&DrawCommand> = ctx
+            .commands
+            .iter()
+            .filter(|c: &&DrawCommand| matches!(c, DrawCommand::Glow(..)))
+            .collect();
+
+        assert_eq!(glows.len(), 1);
+        assert!(matches!(glows[0], DrawCommand::Glow(amount) if *amount == 0.8));
     }
 
     #[test]

@@ -91,6 +91,13 @@ pub trait GameContext<A: InputAction> {
     /// `on_fixed_update`, prefer [`fixed_delta`](Self::fixed_delta).
     fn delta_time(&self) -> f64;
 
+    /// Seconds of real time since startup.
+    ///
+    /// The same clock the renderer hands the shader as `globals.time`, so a
+    /// value driven from it on the CPU stays in phase with anything the shader
+    /// animates from it.
+    fn elapsed_time(&self) -> f64;
+
     /// The constant timestep of the fixed-update loop, in seconds (e.g. `1/60`).
     ///
     /// This is the dt to integrate with inside `on_fixed_update` for
@@ -170,6 +177,17 @@ pub trait GameContext<A: InputAction> {
     /// Sets the background clear colour for this frame.
     fn clear_color(&mut self, color: Color);
 
+    /// Sets the strength of the time-driven brightness pulse applied to this
+    /// frame's 3D geometry, `0.0` (the default) disabling it entirely.
+    ///
+    /// The pulse runs on the GPU from the engine's elapsed-time uniform — no
+    /// CPU code animates it — and each fragment derives its phase smoothly
+    /// from its position, so waves of brightness roll across large surfaces
+    /// while separate objects pulse out of step with each other, at no
+    /// per-object cost. `amount` blends between untouched (`0.0`) and fully
+    /// pulsed (`1.0`) brightness. 2D geometry is never affected.
+    fn set_glow(&mut self, amount: f32);
+
     /// Draws a filled triangle.
     ///
     /// - `p1`, `p2`, `p3` — The three vertices of the triangle in world coordinates
@@ -208,6 +226,18 @@ pub trait GameContext<A: InputAction> {
     ///   up (see [`Mat4::perspective`](redixel_math::Mat4::perspective))
     /// - `color`          — fill colour
     fn draw_triangle_3d(&mut self, p1: Vec3, p2: Vec3, p3: Vec3, color: Color);
+
+    /// Draws a triangle in 3D view space with an independent colour per
+    /// vertex, interpolated across the face by the rasteriser.
+    ///
+    /// The building block for smooth (Gouraud) shading — light each vertex of
+    /// a mesh instead of each face and the facets disappear — and for soft
+    /// gradients: a corner whose colour carries zero alpha fades the face out
+    /// towards it.
+    ///
+    /// - `points` — the three vertices, in the perspective camera's view space
+    /// - `colors` — the colour at each vertex, in the same order
+    fn draw_triangle_3d_shaded(&mut self, points: [Vec3; 3], colors: [Color; 3]);
 
     /// Draws a textured triangle in 3D view space.
     ///

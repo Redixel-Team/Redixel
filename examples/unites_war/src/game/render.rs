@@ -201,7 +201,7 @@ impl UnitesWar {
 
         Self::draw_text_centered(
             ctx,
-            "ENTER PARA JOGAR",
+            "ENTER PARA VER FASES",
             width * 0.5,
             height * 0.78,
             1.5,
@@ -215,6 +215,165 @@ impl UnitesWar {
             1.35,
             Color::from_rgba8(139, 158, 146, 255),
         );
+    }
+
+    pub(super) fn draw_stage_select(&self, ctx: &mut dyn GameContext<Action>, width: f32, height: f32) {
+        Self::draw_background(ctx, width, height);
+        Self::draw_castle(ctx, &self.player_castle, Faction::Player, width, height);
+        Self::draw_castle(ctx, &self.enemy_castle, Faction::Enemy, width, height);
+        ctx.draw_rect(Vec2::ZERO, Vec2::new(width, height), Color::from_rgba8(12, 18, 18, 120));
+
+        let (panel_pos, panel_size): (Vec2, Vec2) = Self::stage_select_panel_rect(width, height);
+        Self::draw_prism(
+            ctx,
+            panel_pos,
+            panel_size,
+            Vec2::new(12.0, -10.0),
+            Color::from_rgba8(30, 40, 40, 250),
+        );
+        Self::draw_text_centered(
+            ctx,
+            "SELECIONE A FASE",
+            width * 0.5,
+            panel_pos.y + 28.0,
+            2.75,
+            Color::from_rgba8(239, 197, 83, 255),
+        );
+        Self::draw_text_centered(
+            ctx,
+            "A GUERRA ESTA APENAS COMECANDO",
+            width * 0.5,
+            panel_pos.y + 66.0,
+            1.25,
+            Color::from_rgba8(163, 184, 171, 255),
+        );
+
+        let mouse: Option<Vec2> = ctx.input().mouse_position();
+        for index in 0..STAGE_COUNT {
+            let (card_pos, card_size): (Vec2, Vec2) = Self::stage_card_rect(index, width, height);
+            let hovered: bool = mouse.is_some_and(|point| Self::point_in_rect(point, card_pos, card_size));
+            let available: bool = index == 0;
+            let card_color: Color = if available && hovered {
+                Color::from_rgba8(63, 126, 72, 255)
+            } else if available {
+                Color::from_rgba8(44, 91, 57, 255)
+            } else if hovered {
+                Color::from_rgba8(50, 58, 59, 255)
+            } else {
+                Color::from_rgba8(37, 44, 45, 255)
+            };
+            Self::draw_prism(ctx, card_pos, card_size, Vec2::new(6.0, -5.0), card_color);
+
+            let preview_pos: Vec2 = card_pos + Vec2::new(7.0, 7.0);
+            let preview_size: Vec2 = Vec2::new(card_size.x - 14.0, (card_size.y * 0.52).max(38.0));
+            ctx.draw_rect(
+                preview_pos,
+                preview_size,
+                if available {
+                    Color::from_rgba8(52, 87, 92, 255)
+                } else {
+                    Color::from_rgba8(27, 33, 35, 255)
+                },
+            );
+
+            if available {
+                ctx.draw_triangle(
+                    preview_pos + Vec2::new(0.0, preview_size.y * 0.48),
+                    preview_pos + Vec2::new(preview_size.x * 0.36, preview_size.y * 0.08),
+                    preview_pos + Vec2::new(preview_size.x * 0.64, preview_size.y * 0.48),
+                    Color::from_rgba8(61, 99, 82, 255),
+                );
+                ctx.draw_triangle(
+                    preview_pos + Vec2::new(preview_size.x * 0.35, preview_size.y * 0.48),
+                    preview_pos + Vec2::new(preview_size.x * 0.72, preview_size.y * 0.14),
+                    preview_pos + Vec2::new(preview_size.x, preview_size.y * 0.48),
+                    Color::from_rgba8(55, 88, 76, 255),
+                );
+                ctx.draw_rect(
+                    preview_pos + Vec2::new(0.0, preview_size.y * 0.48),
+                    Vec2::new(preview_size.x, preview_size.y * 0.52),
+                    Color::from_rgba8(87, 76, 49, 255),
+                );
+                let tower_size: Vec2 = Vec2::new((preview_size.x * 0.1).clamp(15.0, 28.0), preview_size.y * 0.43);
+                Self::draw_prism(
+                    ctx,
+                    preview_pos + Vec2::new(12.0, preview_size.y - tower_size.y),
+                    tower_size,
+                    Vec2::new(3.0, -3.0),
+                    Color::from_rgba8(78, 118, 91, 255),
+                );
+                Self::draw_prism(
+                    ctx,
+                    preview_pos + Vec2::new(preview_size.x - tower_size.x - 15.0, preview_size.y - tower_size.y),
+                    tower_size,
+                    Vec2::new(3.0, -3.0),
+                    Color::from_rgba8(132, 74, 62, 255),
+                );
+            } else {
+                let lock_center: Vec2 = preview_pos + preview_size * 0.5;
+                ctx.draw_rect(
+                    lock_center + Vec2::new(-13.0, -2.0),
+                    Vec2::new(26.0, 22.0),
+                    Color::from_rgba8(75, 82, 82, 255),
+                );
+                ctx.draw_rect(
+                    lock_center + Vec2::new(-9.0, -14.0),
+                    Vec2::new(4.0, 14.0),
+                    Color::from_rgba8(75, 82, 82, 255),
+                );
+                ctx.draw_rect(
+                    lock_center + Vec2::new(5.0, -14.0),
+                    Vec2::new(4.0, 14.0),
+                    Color::from_rgba8(75, 82, 82, 255),
+                );
+                ctx.draw_rect(
+                    lock_center + Vec2::new(-5.0, -17.0),
+                    Vec2::new(10.0, 4.0),
+                    Color::from_rgba8(75, 82, 82, 255),
+                );
+            }
+
+            let phase_label: String = format!("FASE {}", index + 1);
+            Self::draw_text_centered(
+                ctx,
+                &phase_label,
+                card_pos.x + card_size.x * 0.5,
+                card_pos.y + card_size.y * 0.62,
+                1.65,
+                if available {
+                    Color::from_rgba8(246, 218, 134, 255)
+                } else {
+                    Color::from_rgba8(119, 130, 129, 255)
+                },
+            );
+            Self::draw_text_centered(
+                ctx,
+                if available { "PLANICIE DOS CLAS" } else { "EM BREVE" },
+                card_pos.x + card_size.x * 0.5,
+                card_pos.y + card_size.y * 0.79,
+                if available { 1.05 } else { 1.3 },
+                if available {
+                    Color::from_rgba8(190, 211, 189, 255)
+                } else {
+                    Color::from_rgba8(93, 103, 103, 255)
+                },
+            );
+        }
+
+        let (back_pos, back_size): (Vec2, Vec2) = Self::stage_back_button_rect(width, height);
+        let back_hovered: bool = mouse.is_some_and(|point| Self::point_in_rect(point, back_pos, back_size));
+        Self::draw_prism(
+            ctx,
+            back_pos,
+            back_size,
+            Vec2::new(5.0, -4.0),
+            if back_hovered {
+                Color::from_rgba8(132, 72, 61, 255)
+            } else {
+                Color::from_rgba8(91, 58, 54, 255)
+            },
+        );
+        Self::draw_text_centered(ctx, "VOLTAR", width * 0.5, back_pos.y + 13.0, 1.9, Color::WHITE);
     }
 
     pub(super) fn draw_background(ctx: &mut dyn GameContext<Action>, width: f32, height: f32) {
@@ -516,6 +675,165 @@ impl UnitesWar {
         }
     }
 
+    fn hero_aim_color(&self) -> Color {
+        match self.hero.aim_style {
+            0 => Color::from_rgba8(205, 133, 255, 255),
+            1 => Color::from_rgba8(108, 224, 210, 255),
+            _ => Color::from_rgba8(248, 194, 78, 255),
+        }
+    }
+
+    pub(super) fn draw_hero(&self, ctx: &mut dyn GameContext<Action>) {
+        if !self.hero.alive() {
+            return;
+        }
+
+        let bob: f32 = (self.battle_time * 4.8).sin() * 1.0;
+        let top_left: Vec2 = self.hero.pos - HERO_SIZE * 0.5 + Vec2::new(0.0, bob);
+        let base_color: Color = if self.hero.hit_flash > 0.0 {
+            Color::WHITE
+        } else {
+            Color::from_rgba8(67, 44, 91, 255)
+        };
+        let cloak_color: Color = base_color.lerp(Color::BLACK, 0.24);
+        let aim_color: Color = self.hero_aim_color();
+
+        Self::draw_shadow(
+            ctx,
+            Vec2::new(self.hero.pos.x + 4.0, self.hero.pos.y + HERO_SIZE.y * 0.5 + 4.0),
+            HERO_SIZE.x * 1.55,
+            HERO_SIZE.x * 0.55,
+        );
+        ctx.draw_triangle(
+            top_left + Vec2::new(HERO_SIZE.x * 0.5, 13.0),
+            top_left + Vec2::new(2.0, HERO_SIZE.y),
+            top_left + Vec2::new(HERO_SIZE.x - 4.0, HERO_SIZE.y),
+            cloak_color,
+        );
+        Self::draw_prism(
+            ctx,
+            top_left + Vec2::new(10.0, 20.0),
+            Vec2::new(14.0, 25.0),
+            Vec2::new(4.0, -4.0),
+            base_color,
+        );
+        Self::draw_prism(
+            ctx,
+            top_left + Vec2::new(8.0, 4.0),
+            Vec2::new(17.0, 19.0),
+            Vec2::new(4.0, -4.0),
+            cloak_color,
+        );
+        ctx.draw_triangle(
+            top_left + Vec2::new(8.0, 5.0),
+            top_left + Vec2::new(16.0, -5.0),
+            top_left + Vec2::new(26.0, 7.0),
+            cloak_color.lerp(Color::WHITE, 0.08),
+        );
+        ctx.draw_rect(
+            top_left + Vec2::new(20.0, 11.0),
+            Vec2::splat(3.0),
+            Color::from_rgba8(223, 168, 255, 255),
+        );
+
+        let bow_x: f32 = top_left.x + HERO_SIZE.x - 2.0;
+        ctx.draw_triangle(
+            Vec2::new(bow_x, top_left.y + 12.0),
+            Vec2::new(bow_x + 10.0, top_left.y + 25.0),
+            Vec2::new(bow_x, top_left.y + 38.0),
+            Color::from_rgba8(74, 41, 36, 255),
+        );
+        ctx.draw_rect(Vec2::new(bow_x - 2.0, top_left.y + 24.0), Vec2::new(21.0, 2.0), aim_color);
+        ctx.draw_triangle(
+            Vec2::new(bow_x + 19.0, top_left.y + 21.0),
+            Vec2::new(bow_x + 25.0, top_left.y + 25.0),
+            Vec2::new(bow_x + 19.0, top_left.y + 29.0),
+            aim_color,
+        );
+
+        Self::draw_bar(
+            ctx,
+            Vec2::new(top_left.x - 5.0, top_left.y - 13.0),
+            Vec2::new(HERO_SIZE.x + 10.0, 7.0),
+            self.hero.health / self.hero.max_health,
+            Color::from_rgba8(181, 87, 220, 255),
+        );
+        Self::draw_text_centered(
+            ctx,
+            "HEROI",
+            self.hero.pos.x,
+            top_left.y - 25.0,
+            0.85,
+            Color::from_rgba8(222, 183, 244, 255),
+        );
+    }
+
+    pub(super) fn draw_hero_aim(&self, ctx: &mut dyn GameContext<Action>, width: f32) {
+        if !self.hero.alive() || self.state != BattleState::Playing {
+            return;
+        }
+
+        let start: Vec2 = self.hero.pos + Vec2::new(17.0, -7.0);
+        let target: Vec2 = self.hero_aim_target(width);
+        let direction: Vec2 = (target - start).normalise();
+        let normal: Vec2 = Vec2::new(-direction.y, direction.x) * 1.2;
+        let color: Color = self.hero_aim_color();
+        Self::draw_quad(
+            ctx,
+            start + normal,
+            target + normal,
+            target - normal,
+            start - normal,
+            color.with_alpha(0.18),
+        );
+
+        match self.hero.aim_style {
+            0 => {
+                ctx.draw_rect(target + Vec2::new(-19.0, -2.0), Vec2::new(12.0, 4.0), color);
+                ctx.draw_rect(target + Vec2::new(7.0, -2.0), Vec2::new(12.0, 4.0), color);
+                ctx.draw_rect(target + Vec2::new(-2.0, -19.0), Vec2::new(4.0, 12.0), color);
+                ctx.draw_rect(target + Vec2::new(-2.0, 7.0), Vec2::new(4.0, 12.0), color);
+            }
+            1 => {
+                for offset in [
+                    Vec2::new(-16.0, -16.0),
+                    Vec2::new(10.0, -16.0),
+                    Vec2::new(-16.0, 10.0),
+                    Vec2::new(10.0, 10.0),
+                ] {
+                    ctx.draw_rect(target + offset, Vec2::splat(6.0), color);
+                }
+                Self::draw_quad(
+                    ctx,
+                    target + Vec2::new(-5.0, 0.0),
+                    target + Vec2::new(0.0, -5.0),
+                    target + Vec2::new(5.0, 0.0),
+                    target + Vec2::new(0.0, 5.0),
+                    color,
+                );
+            }
+            _ => {
+                Self::draw_quad(
+                    ctx,
+                    target + Vec2::new(-18.0, 0.0),
+                    target + Vec2::new(0.0, -18.0),
+                    target + Vec2::new(18.0, 0.0),
+                    target + Vec2::new(0.0, 18.0),
+                    color.with_alpha(0.72),
+                );
+                Self::draw_quad(
+                    ctx,
+                    target + Vec2::new(-10.0, 0.0),
+                    target + Vec2::new(0.0, -10.0),
+                    target + Vec2::new(10.0, 0.0),
+                    target + Vec2::new(0.0, 10.0),
+                    Color::from_rgba8(34, 38, 39, 255),
+                );
+                ctx.draw_rect(target - Vec2::splat(2.0), Vec2::splat(4.0), color);
+            }
+        }
+    }
+
     pub(super) fn draw_effects(&self, ctx: &mut dyn GameContext<Action>) {
         for effect in &self.effects {
             let progress: f32 = 1.0 - effect.life / effect.max_life;
@@ -659,6 +977,118 @@ impl UnitesWar {
             Color::from_rgba8(239, 226, 122, 255),
         );
 
+        let hero_panel_pos: Vec2 = Vec2::new(18.0, 84.0);
+        let hero_panel_size: Vec2 = Vec2::new(305.0, 70.0);
+        Self::draw_prism(
+            ctx,
+            hero_panel_pos,
+            hero_panel_size,
+            Vec2::new(5.0, -4.0),
+            if self.hero.alive() {
+                Color::from_rgba8(48, 35, 63, 245)
+            } else {
+                Color::from_rgba8(48, 43, 47, 245)
+            },
+        );
+        Self::draw_text(
+            ctx,
+            "ARQUEIRA SOMBRIA",
+            hero_panel_pos + Vec2::new(13.0, 10.0),
+            1.45,
+            if self.hero.alive() {
+                Color::from_rgba8(222, 183, 244, 255)
+            } else {
+                Color::from_rgba8(130, 126, 130, 255)
+            },
+        );
+        let hero_status: String = if !self.hero.alive() {
+            "ABATIDA".to_owned()
+        } else if self.hero.attack_cooldown <= 0.0 {
+            "FLECHA PRONTA".to_owned()
+        } else {
+            format!("RECARGA {:.1}", self.hero.attack_cooldown)
+        };
+        Self::draw_text(
+            ctx,
+            &hero_status,
+            hero_panel_pos + Vec2::new(13.0, 34.0),
+            1.05,
+            if self.hero.attack_cooldown <= 0.0 && self.hero.alive() {
+                self.hero_aim_color()
+            } else {
+                Color::from_rgba8(154, 151, 158, 255)
+            },
+        );
+        Self::draw_bar(
+            ctx,
+            hero_panel_pos + Vec2::new(13.0, 54.0),
+            Vec2::new(112.0, 9.0),
+            self.hero.health / self.hero.max_health,
+            Color::from_rgba8(181, 87, 220, 255),
+        );
+        Self::draw_text(
+            ctx,
+            "A D MOVER  ATAQUE AUTO",
+            hero_panel_pos + Vec2::new(137.0, 55.0),
+            0.7,
+            Color::from_rgba8(174, 166, 182, 255),
+        );
+
+        let queue_panel_size: Vec2 = Vec2::new(305.0, 70.0);
+        let queue_panel_pos: Vec2 = Vec2::new(width - queue_panel_size.x - 18.0, 84.0);
+        Self::draw_prism(
+            ctx,
+            queue_panel_pos,
+            queue_panel_size,
+            Vec2::new(5.0, -4.0),
+            Color::from_rgba8(43, 47, 44, 245),
+        );
+        Self::draw_text(
+            ctx,
+            &format!("FILA DE TROPAS {}", self.player_recruit_queue.len()),
+            queue_panel_pos + Vec2::new(13.0, 10.0),
+            1.35,
+            Color::from_rgba8(226, 205, 143, 255),
+        );
+        for (index, kind) in self.player_recruit_queue.iter().take(8).enumerate() {
+            let slot_pos: Vec2 = queue_panel_pos + Vec2::new(13.0 + index as f32 * 34.0, 31.0);
+            ctx.draw_rect(slot_pos, Vec2::new(27.0, 19.0), Color::from_rgba8(27, 31, 30, 255));
+            Self::draw_quad(
+                ctx,
+                slot_pos + Vec2::new(5.0, 9.5),
+                slot_pos + Vec2::new(13.5, 2.5),
+                slot_pos + Vec2::new(22.0, 9.5),
+                slot_pos + Vec2::new(13.5, 16.5),
+                kind.color(Faction::Player),
+            );
+        }
+        let queue_progress: f32 = if self.player_recruit_queue.is_empty() {
+            0.0
+        } else {
+            1.0 - self.player_recruit_timer / PLAYER_RECRUIT_INTERVAL
+        };
+        Self::draw_bar(
+            ctx,
+            queue_panel_pos + Vec2::new(13.0, 56.0),
+            Vec2::new(132.0, 8.0),
+            queue_progress,
+            Color::from_rgba8(226, 174, 72, 255),
+        );
+        let queue_status: String = if self.player_recruit_queue.is_empty() {
+            "FILA VAZIA".to_owned()
+        } else if self.units.len() >= MAX_UNITS {
+            "LIMITE DE TROPAS".to_owned()
+        } else {
+            format!("PROXIMA {:.1}S", self.player_recruit_timer)
+        };
+        Self::draw_text(
+            ctx,
+            &queue_status,
+            queue_panel_pos + Vec2::new(157.0, 55.0),
+            0.85,
+            Color::from_rgba8(167, 177, 168, 255),
+        );
+
         if self.state == BattleState::Playing {
             let (skills_pos, skills_size): (Vec2, Vec2) = Self::skills_button_rect(width);
             let hovered: bool = ctx
@@ -699,7 +1129,8 @@ impl UnitesWar {
 
         for (index, kind) in UnitKind::ALL.into_iter().enumerate() {
             let (pos, size): (Vec2, Vec2) = Self::button_rect(index, width, height);
-            let available: bool = self.player_coins >= kind.stats().cost && self.units.len() < MAX_UNITS;
+            let available: bool = self.player_coins >= kind.stats().cost
+                && self.units.len() + self.player_recruit_queue.len() < MAX_UNITS;
             Self::draw_prism(
                 ctx,
                 pos,
@@ -712,6 +1143,23 @@ impl UnitesWar {
                 },
             );
             Self::draw_unit_icon(ctx, kind, pos, size, available);
+            let queued_count: usize = self
+                .player_recruit_queue
+                .iter()
+                .filter(|queued_kind| **queued_kind == kind)
+                .count();
+            if queued_count > 0 {
+                let badge_pos: Vec2 = pos + Vec2::new(size.x - 24.0, 5.0);
+                ctx.draw_rect(badge_pos, Vec2::new(19.0, 16.0), Color::from_rgba8(27, 31, 30, 245));
+                Self::draw_text_centered(
+                    ctx,
+                    &queued_count.to_string(),
+                    badge_pos.x + 9.5,
+                    badge_pos.y + 4.0,
+                    1.05,
+                    Color::from_rgba8(248, 210, 105, 255),
+                );
+            }
         }
 
         let (upgrade_pos, upgrade_size): (Vec2, Vec2) = Self::button_rect(4, width, height);

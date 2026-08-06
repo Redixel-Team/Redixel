@@ -1,12 +1,128 @@
 use super::*;
 
 #[test]
-fn game_opens_in_menu_and_can_start_battle() {
+fn game_opens_in_menu_and_can_select_the_first_stage() {
     let mut game: UnitesWar = UnitesWar::new();
     assert_eq!(game.screen, ScreenState::Menu);
+    game.open_stage_select();
+    assert_eq!(game.screen, ScreenState::StageSelect);
     game.start_battle();
     assert_eq!(game.screen, ScreenState::Battle);
     assert_eq!(game.state, BattleState::Playing);
+}
+
+#[test]
+fn stage_select_has_one_playable_stage_and_future_slots() {
+    let first: (Vec2, Vec2) = UnitesWar::stage_card_rect(0, 1280.0, 720.0);
+    let second: (Vec2, Vec2) = UnitesWar::stage_card_rect(1, 1280.0, 720.0);
+    assert!(second.0.x > first.0.x);
+    assert_eq!(first.1, second.1);
+}
+
+#[test]
+fn shadow_archer_can_advance_and_retreat_within_the_battlefield() {
+    let mut game: UnitesWar = UnitesWar::new();
+    let width: f32 = 1280.0;
+    let height: f32 = 720.0;
+    game.update_hero_movement(0.0, 0.0, width, height);
+    let initial_x: f32 = game.hero.pos.x;
+
+    game.update_hero_movement(1.0, 0.5, width, height);
+    assert!(game.hero.pos.x > initial_x);
+
+    game.update_hero_movement(-1.0, 0.5, width, height);
+    assert!((game.hero.pos.x - initial_x).abs() < 0.001);
+
+    game.update_hero_movement(-1.0, 100.0, width, height);
+    assert!(game.hero.pos.x >= UnitesWar::castle_x(Faction::Player, width) + CASTLE_WIDTH * 0.62);
+}
+
+#[test]
+fn shadow_archer_arrow_pierces_up_to_four_enemy_troops() {
+    let mut game: UnitesWar = UnitesWar::new();
+    game.start_battle();
+    game.hero.pos = Vec2::new(200.0, 400.0);
+    for index in 0..5 {
+        game.units.push(Unit::new(
+            UnitKind::Guard,
+            Faction::Enemy,
+            Vec2::new(300.0 + index as f32 * 50.0, 400.0),
+            0,
+        ));
+    }
+    let health_before: Vec<f32> = game.units.iter().map(|unit| unit.health).collect();
+
+    assert!(game.fire_hero(1280.0));
+    assert_eq!(game.hero.aim_style, 1);
+    assert_eq!(game.hero.attack_cooldown, HERO_ATTACK_COOLDOWN);
+    for (index, unit) in game.units.iter().enumerate() {
+        if index < HERO_MAX_PIERCED_TARGETS {
+            assert!(unit.health < health_before[index]);
+        } else {
+            assert_eq!(unit.health, health_before[index]);
+        }
+    }
+
+    game.hero.attack_cooldown = 0.0;
+    assert!(game.fire_hero(1280.0));
+    assert_eq!(game.hero.aim_style, 2);
+    game.hero.attack_cooldown = 0.0;
+    assert!(game.fire_hero(1280.0));
+    assert_eq!(game.hero.aim_style, 0);
+}
+
+#[test]
+fn shadow_archer_deals_bonus_damage_to_the_enemy_castle() {
+    let mut game: UnitesWar = UnitesWar::new();
+    game.start_battle();
+    let width: f32 = 1280.0;
+    game.hero.pos.x = UnitesWar::castle_x(Faction::Enemy, width) - HERO_RANGE + 1.0;
+    let health_before: f32 = game.enemy_castle.health;
+
+    assert!(game.fire_hero(width));
+    assert!((game.enemy_castle.health - (health_before - HERO_DAMAGE * HERO_TOWER_DAMAGE_MULTIPLIER)).abs() < 0.001);
+}
+
+#[test]
+fn shadow_archer_has_low_health_and_can_be_defeated() {
+    let mut game: UnitesWar = UnitesWar::new();
+    assert!(game.hero.max_health < UnitKind::Guard.stats().health);
+    assert_eq!(game.apply_hero_damage(HERO_MAX_HEALTH * 2.0, 0.1), HERO_MAX_HEALTH);
+    assert!(!game.hero.alive());
+    assert!(!game.fire_hero(1280.0));
+}
+
+#[test]
+fn shadow_archer_waits_for_a_target_before_firing_automatically() {
+    let mut game: UnitesWar = UnitesWar::new();
+    game.start_battle();
+
+    assert!(!game.fire_hero(1280.0));
+    assert_eq!(game.hero.attack_cooldown, 0.0);
+    assert_eq!(game.hero.aim_style, 0);
+
+    game.units.push(Unit::new(
+        UnitKind::Runner,
+        Faction::Enemy,
+        game.hero.pos + Vec2::new(200.0, 0.0),
+        0,
+    ));
+    assert!(game.fire_hero(1280.0));
+}
+
+#[test]
+fn enemy_troops_can_attack_the_shadow_archer() {
+    let mut game: UnitesWar = UnitesWar::new();
+    game.start_battle();
+    game.hero.pos = Vec2::new(300.0, 400.0);
+    game.units
+        .push(Unit::new(UnitKind::Guard, Faction::Enemy, Vec2::new(330.0, 400.0), 0));
+    game.units[0].attack_cooldown = 0.0;
+    let health_before: f32 = game.hero.health;
+
+    game.update_units(0.0, 1280.0);
+
+    assert!(game.hero.health < health_before);
 }
 
 #[test]
@@ -56,6 +172,50 @@ fn unaffordable_unit_is_not_recruited() {
     game.player_coins = 0.0;
     assert!(!game.recruit(Faction::Player, UnitKind::Brute, 1280.0, 720.0));
     assert!(game.units.is_empty());
+}
+
+#[test]
+fn player_recruits_are_paid_and_added_to_the_queue_in_order() {
+    let mut game: UnitesWar = UnitesWar::new();
+    game.start_battle();
+    game.player_coins = MAX_COINS;
+    let coins_before: f32 = game.player_coins;
+
+    assert!(game.enqueue_player_recruit(UnitKind::Guard));
+    assert!(game.enqueue_player_recruit(UnitKind::Runner));
+
+    assert!(game.units.is_empty());
+    assert_eq!(
+        game.player_recruit_queue.iter().copied().collect::<Vec<_>>(),
+        vec![UnitKind::Guard, UnitKind::Runner]
+    );
+    assert!(
+        (game.player_coins - (coins_before - UnitKind::Guard.stats().cost - UnitKind::Runner.stats().cost)).abs()
+            < 0.001
+    );
+    assert_eq!(game.player_recruit_timer, PLAYER_RECRUIT_INTERVAL);
+}
+
+#[test]
+fn player_recruit_queue_spawns_only_one_unit_per_interval() {
+    let mut game: UnitesWar = UnitesWar::new();
+    game.start_battle();
+    game.player_coins = MAX_COINS;
+    assert!(game.enqueue_player_recruit(UnitKind::Guard));
+    assert!(game.enqueue_player_recruit(UnitKind::Runner));
+
+    game.update_player_recruit_queue(PLAYER_RECRUIT_INTERVAL * 0.5, 1280.0, 720.0);
+    assert!(game.units.is_empty());
+
+    game.update_player_recruit_queue(PLAYER_RECRUIT_INTERVAL * 0.5, 1280.0, 720.0);
+    assert_eq!(game.units.len(), 1);
+    assert_eq!(game.units[0].kind, UnitKind::Guard);
+    assert_eq!(game.player_recruit_queue.len(), 1);
+
+    game.update_player_recruit_queue(PLAYER_RECRUIT_INTERVAL, 1280.0, 720.0);
+    assert_eq!(game.units.len(), 2);
+    assert_eq!(game.units[1].kind, UnitKind::Runner);
+    assert!(game.player_recruit_queue.is_empty());
 }
 
 #[test]

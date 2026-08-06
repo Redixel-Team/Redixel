@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use redixel::prelude::*;
 
 mod passives;
@@ -20,8 +22,18 @@ const TOOLBAR_HEIGHT: f32 = 104.0;
 const BUTTON_SIZE: f32 = 66.0;
 const BUTTON_GAP: f32 = 12.0;
 const MAX_UNITS: usize = 80;
+const PLAYER_RECRUIT_INTERVAL: f32 = 0.85;
 const MENU_BUTTON_WIDTH: f32 = 250.0;
 const MENU_BUTTON_HEIGHT: f32 = 58.0;
+const STAGE_COUNT: usize = 6;
+const HERO_MAX_HEALTH: f32 = 115.0;
+const HERO_DAMAGE: f32 = 48.0;
+const HERO_TOWER_DAMAGE_MULTIPLIER: f32 = 1.8;
+const HERO_RANGE: f32 = 520.0;
+const HERO_MOVE_SPEED: f32 = 112.0;
+const HERO_ATTACK_COOLDOWN: f32 = 0.92;
+const HERO_MAX_PIERCED_TARGETS: usize = 4;
+const HERO_SIZE: Vec2 = Vec2::new(31.0, 49.0);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum Action {
@@ -36,6 +48,8 @@ pub(crate) enum Action {
     Click,
     Restart,
     Exit,
+    HeroAdvance,
+    HeroRetreat,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -186,6 +200,33 @@ struct Castle {
     attack_cooldown: f32,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct Hero {
+    pos: Vec2,
+    health: f32,
+    max_health: f32,
+    attack_cooldown: f32,
+    hit_flash: f32,
+    aim_style: u8,
+}
+
+impl Hero {
+    fn new() -> Self {
+        Self {
+            pos: Vec2::new(158.0, 400.0),
+            health: HERO_MAX_HEALTH,
+            max_health: HERO_MAX_HEALTH,
+            attack_cooldown: 0.0,
+            hit_flash: 0.0,
+            aim_style: 0,
+        }
+    }
+
+    fn alive(&self) -> bool {
+        self.health > 0.0
+    }
+}
+
 impl Castle {
     fn new() -> Self {
         Self {
@@ -207,6 +248,7 @@ enum BattleState {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ScreenState {
     Menu,
+    StageSelect,
     Battle,
 }
 
@@ -222,6 +264,7 @@ struct AttackEffect {
 #[derive(Clone, Copy)]
 enum AttackTarget {
     Unit(usize),
+    Hero,
     Castle(Faction),
 }
 
@@ -234,6 +277,9 @@ pub(crate) struct UnitesWar {
     units: Vec<Unit>,
     player_castle: Castle,
     enemy_castle: Castle,
+    hero: Hero,
+    player_recruit_queue: VecDeque<UnitKind>,
+    player_recruit_timer: f32,
     player_coins: f32,
     enemy_coins: f32,
     spell_cooldown: f32,
@@ -253,6 +299,9 @@ impl UnitesWar {
             units: Vec::new(),
             player_castle: Castle::new(),
             enemy_castle: Castle::new(),
+            hero: Hero::new(),
+            player_recruit_queue: VecDeque::new(),
+            player_recruit_timer: 0.0,
             player_coins: STARTING_COINS,
             enemy_coins: STARTING_COINS,
             spell_cooldown: 0.0,
@@ -274,6 +323,10 @@ impl UnitesWar {
 
     fn start_battle(&mut self) {
         self.reset();
+    }
+
+    fn open_stage_select(&mut self) {
+        self.screen = ScreenState::StageSelect;
     }
 
     fn ground_y(height: f32) -> f32 {
@@ -303,6 +356,24 @@ impl UnitesWar {
         self.rng
     }
 
+    fn spawn_unit(&mut self, faction: Faction, kind: UnitKind, width: f32, height: f32) -> bool {
+        if self.state != BattleState::Playing || self.units.len() >= MAX_UNITS {
+            return false;
+        }
+
+        let level: u8 = match faction {
+            Faction::Player => self.player_castle.level,
+            Faction::Enemy => self.enemy_castle.level,
+        };
+        self.units.push(Unit::new(
+            kind,
+            faction,
+            Vec2::new(Self::spawn_x(faction, width), Self::unit_y(kind, height)),
+            level,
+        ));
+        true
+    }
+
     fn recruit(&mut self, faction: Faction, kind: UnitKind, width: f32, height: f32) -> bool {
         if self.state != BattleState::Playing || self.units.len() >= MAX_UNITS {
             return false;
@@ -319,17 +390,49 @@ impl UnitesWar {
         }
 
         *coins -= cost;
-        let level: u8 = match faction {
-            Faction::Player => self.player_castle.level,
-            Faction::Enemy => self.enemy_castle.level,
-        };
-        self.units.push(Unit::new(
-            kind,
-            faction,
-            Vec2::new(Self::spawn_x(faction, width), Self::unit_y(kind, height)),
-            level,
-        ));
+        self.spawn_unit(faction, kind, width, height)
+    }
+
+    fn enqueue_player_recruit(&mut self, kind: UnitKind) -> bool {
+        if self.state != BattleState::Playing
+            || self.units.len() + self.player_recruit_queue.len() >= MAX_UNITS
+            || self.player_coins < kind.stats().cost
+        {
+            return false;
+        }
+
+        self.player_coins -= kind.stats().cost;
+        let queue_was_empty: bool = self.player_recruit_queue.is_empty();
+        self.player_recruit_queue.push_back(kind);
+        if queue_was_empty {
+            self.player_recruit_timer = PLAYER_RECRUIT_INTERVAL;
+        }
         true
+    }
+
+    fn update_player_recruit_queue(&mut self, dt: f32, width: f32, height: f32) {
+        if self.player_recruit_queue.is_empty() {
+            self.player_recruit_timer = 0.0;
+            return;
+        }
+
+        self.player_recruit_timer = (self.player_recruit_timer - dt).max(0.0);
+        if self.player_recruit_timer > 0.0 || self.units.len() >= MAX_UNITS {
+            return;
+        }
+
+        let Some(kind) = self.player_recruit_queue.pop_front() else {
+            return;
+        };
+        if self.spawn_unit(Faction::Player, kind, width, height) {
+            self.player_recruit_timer = if self.player_recruit_queue.is_empty() {
+                0.0
+            } else {
+                PLAYER_RECRUIT_INTERVAL
+            };
+        } else {
+            self.player_recruit_queue.push_front(kind);
+        }
     }
 
     fn upgrade_cost(level: u8) -> f32 {
@@ -409,6 +512,39 @@ impl UnitesWar {
         (Vec2::new(x, y), Vec2::new(MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT))
     }
 
+    fn stage_select_panel_rect(width: f32, height: f32) -> (Vec2, Vec2) {
+        let size: Vec2 = Vec2::new((width - 36.0).min(1060.0), (height - 34.0).min(690.0));
+        (Vec2::new((width - size.x) * 0.5, (height - size.y) * 0.46), size)
+    }
+
+    fn stage_card_rect(index: usize, width: f32, height: f32) -> (Vec2, Vec2) {
+        let (panel_pos, panel_size): (Vec2, Vec2) = Self::stage_select_panel_rect(width, height);
+        let columns: usize = if panel_size.x >= 710.0 { 3 } else { 2 };
+        let rows: usize = STAGE_COUNT.div_ceil(columns);
+        let gap: f32 = 16.0;
+        let grid_pos: Vec2 = panel_pos + Vec2::new(24.0, 105.0);
+        let grid_size: Vec2 = Vec2::new(panel_size.x - 48.0, panel_size.y - 181.0);
+        let card_size: Vec2 = Vec2::new(
+            (grid_size.x - gap * (columns - 1) as f32) / columns as f32,
+            (grid_size.y - gap * (rows - 1) as f32) / rows as f32,
+        );
+        let column: f32 = (index % columns) as f32;
+        let row: f32 = (index / columns) as f32;
+        (
+            grid_pos + Vec2::new(column * (card_size.x + gap), row * (card_size.y + gap)),
+            card_size,
+        )
+    }
+
+    fn stage_back_button_rect(width: f32, height: f32) -> (Vec2, Vec2) {
+        let (panel_pos, panel_size): (Vec2, Vec2) = Self::stage_select_panel_rect(width, height);
+        let size: Vec2 = Vec2::new(190.0_f32.min(panel_size.x - 48.0), 43.0);
+        (
+            Vec2::new(panel_pos.x + (panel_size.x - size.x) * 0.5, panel_pos.y + panel_size.y - 58.0),
+            size,
+        )
+    }
+
     fn skills_button_rect(width: f32) -> (Vec2, Vec2) {
         let size: Vec2 = Vec2::new(180.0, 39.0);
         (Vec2::new((width - size.x) * 0.5, 16.0), size)
@@ -465,7 +601,7 @@ impl UnitesWar {
         for (index, kind) in UnitKind::ALL.into_iter().enumerate() {
             let (pos, size): (Vec2, Vec2) = Self::button_rect(index, width, height);
             if Self::point_in_rect(mouse, pos, size) {
-                self.recruit(Faction::Player, kind, width, height);
+                self.enqueue_player_recruit(kind);
                 return;
             }
         }
@@ -477,6 +613,106 @@ impl UnitesWar {
         }
 
         self.cast_spell(mouse, width, height);
+    }
+
+    fn update_hero_movement(&mut self, direction: f32, dt: f32, width: f32, height: f32) {
+        self.hero.pos.y = Self::ground_y(height) - HERO_SIZE.y * 0.5;
+        if !self.hero.alive() {
+            return;
+        }
+
+        let min_x: f32 = Self::castle_x(Faction::Player, width) + CASTLE_WIDTH * 0.62;
+        let max_x: f32 = Self::castle_x(Faction::Enemy, width) - CASTLE_WIDTH * 0.72;
+        self.hero.pos.x =
+            (self.hero.pos.x + direction.clamp(-1.0, 1.0) * HERO_MOVE_SPEED * dt).clamp(min_x, max_x.max(min_x));
+    }
+
+    fn hero_targets(&self) -> Vec<usize> {
+        let mut targets: Vec<(usize, f32)> = self
+            .units
+            .iter()
+            .enumerate()
+            .filter(|(_, unit)| unit.faction == Faction::Enemy && unit.alive())
+            .filter_map(|(index, unit)| {
+                let distance: f32 = unit.pos.x - self.hero.pos.x;
+                (0.0..=HERO_RANGE).contains(&distance).then_some((index, distance))
+            })
+            .collect();
+        targets.sort_by(|a, b| a.1.total_cmp(&b.1));
+        targets
+            .into_iter()
+            .take(HERO_MAX_PIERCED_TARGETS)
+            .map(|(index, _)| index)
+            .collect()
+    }
+
+    fn hero_aim_target(&self, width: f32) -> Vec2 {
+        self.hero_targets()
+            .first()
+            .map(|index| self.units[*index].pos)
+            .unwrap_or_else(|| {
+                let castle_x: f32 = Self::castle_x(Faction::Enemy, width);
+                let target_x: f32 = castle_x.min(self.hero.pos.x + HERO_RANGE);
+                let target_y: f32 = if target_x == castle_x {
+                    self.hero.pos.y - 55.0
+                } else {
+                    self.hero.pos.y
+                };
+                Vec2::new(target_x, target_y)
+            })
+    }
+
+    fn fire_hero(&mut self, width: f32) -> bool {
+        if self.state != BattleState::Playing || !self.hero.alive() || self.hero.attack_cooldown > 0.0 {
+            return false;
+        }
+
+        let targets: Vec<usize> = self.hero_targets();
+        let enemy_castle_x: f32 = Self::castle_x(Faction::Enemy, width);
+        let castle_in_range: bool = enemy_castle_x >= self.hero.pos.x && enemy_castle_x - self.hero.pos.x <= HERO_RANGE;
+        if targets.is_empty() && !castle_in_range {
+            return false;
+        }
+
+        let mut end: Vec2 = Vec2::new((self.hero.pos.x + HERO_RANGE).min(width), self.hero.pos.y);
+        for (pierce_index, target_index) in targets.into_iter().enumerate() {
+            let target_pos: Vec2 = self.units[target_index].pos;
+            let damage_falloff: f32 = 1.0 - pierce_index as f32 * 0.08;
+            self.apply_damage(target_index, HERO_DAMAGE * damage_falloff, 0.14);
+            end = target_pos;
+        }
+
+        if castle_in_range {
+            self.enemy_castle.health -= HERO_DAMAGE * HERO_TOWER_DAMAGE_MULTIPLIER;
+            end = Vec2::new(enemy_castle_x, self.hero.pos.y - 35.0);
+        }
+
+        let arrow_color: Color = match self.hero.aim_style {
+            0 => Color::from_rgba8(205, 133, 255, 255),
+            1 => Color::from_rgba8(108, 224, 210, 255),
+            _ => Color::from_rgba8(248, 194, 78, 255),
+        };
+        self.effects.push(AttackEffect {
+            start: self.hero.pos + Vec2::new(15.0, -7.0),
+            end,
+            life: 0.32,
+            max_life: 0.32,
+            color: arrow_color,
+            heavy: false,
+        });
+        self.hero.attack_cooldown = HERO_ATTACK_COOLDOWN;
+        self.hero.aim_style = (self.hero.aim_style + 1) % 3;
+        true
+    }
+
+    fn apply_hero_damage(&mut self, damage: f32, flash_time: f32) -> f32 {
+        if !self.hero.alive() {
+            return 0.0;
+        }
+        let applied: f32 = damage.min(self.hero.health);
+        self.hero.health = (self.hero.health - damage).max(0.0);
+        self.hero.hit_flash = self.hero.hit_flash.max(flash_time);
+        applied
     }
 
     fn update_enemy_ai(&mut self, dt: f32, width: f32, height: f32) {
@@ -527,22 +763,29 @@ impl UnitesWar {
             let faction: Faction = self.units[index].faction;
             let pos: Vec2 = self.units[index].pos;
             let stats: UnitStats = self.units[index].kind.stats();
-            let nearest: Option<(usize, f32, f32)> = snapshot
+            let mut nearest: Option<(AttackTarget, f32, f32)> = snapshot
                 .iter()
                 .enumerate()
                 .filter(|(_, (other_faction, _, _, alive))| *alive && *other_faction == faction.opposite())
                 .map(|(other_index, (_, other_pos, other_size, _))| {
-                    (other_index, (other_pos.x - pos.x).abs(), other_size.x)
+                    (AttackTarget::Unit(other_index), (other_pos.x - pos.x).abs(), other_size.x)
                 })
                 .min_by(|a, b| a.1.total_cmp(&b.1));
 
-            if let Some((target_index, distance, target_width)) = nearest
+            if faction == Faction::Enemy && self.hero.alive() {
+                let hero_distance: f32 = (self.hero.pos.x - pos.x).abs();
+                if nearest.is_none_or(|(_, distance, _)| hero_distance < distance) {
+                    nearest = Some((AttackTarget::Hero, hero_distance, HERO_SIZE.x));
+                }
+            }
+
+            if let Some((target, distance, target_width)) = nearest
                 && distance <= stats.range + target_width * 0.5
             {
                 if self.units[index].attack_cooldown <= 0.0 {
                     attacks.push(AttackIntent {
                         attacker: index,
-                        target: AttackTarget::Unit(target_index),
+                        target,
                     });
                 }
                 continue;
@@ -594,7 +837,7 @@ impl UnitesWar {
                 intent.attacker,
                 stats.damage * level_multiplier(level),
                 stats.cooldown,
-                matches!(intent.target, AttackTarget::Unit(_)),
+                matches!(intent.target, AttackTarget::Unit(_) | AttackTarget::Hero),
             );
             self.units[intent.attacker].attack_cooldown = modifiers.cooldown;
 
@@ -623,6 +866,14 @@ impl UnitesWar {
                             heavy: false,
                         });
                     }
+                    end
+                }
+                AttackTarget::Hero => {
+                    if faction != Faction::Enemy || !self.hero.alive() {
+                        continue;
+                    }
+                    let end: Vec2 = self.hero.pos;
+                    self.apply_hero_damage(modifiers.damage, 0.11);
                     end
                 }
                 AttackTarget::Castle(target_faction) => {
@@ -685,22 +936,39 @@ impl UnitesWar {
         }
 
         let castle_x: f32 = Self::castle_x(faction, width);
-        let target: Option<usize> = self
+        let mut target: Option<(AttackTarget, Vec2, f32)> = self
             .units
             .iter()
             .enumerate()
             .filter(|(_, unit)| unit.faction == faction.opposite() && unit.alive())
             .filter(|(_, unit)| (unit.pos.x - castle_x).abs() <= CASTLE_ATTACK_RANGE)
-            .min_by(|(_, a), (_, b)| (a.pos.x - castle_x).abs().total_cmp(&(b.pos.x - castle_x).abs()))
-            .map(|(index, _)| index);
+            .map(|(index, unit)| (AttackTarget::Unit(index), unit.pos, (unit.pos.x - castle_x).abs()))
+            .min_by(|a, b| a.2.total_cmp(&b.2));
 
-        if let Some(index) = target {
-            let end: Vec2 = self.units[index].pos;
+        if faction == Faction::Enemy && self.hero.alive() {
+            let hero_distance: f32 = (self.hero.pos.x - castle_x).abs();
+            if hero_distance <= CASTLE_ATTACK_RANGE
+                && target.is_none_or(|(_, _, target_distance)| hero_distance < target_distance)
+            {
+                target = Some((AttackTarget::Hero, self.hero.pos, hero_distance));
+            }
+        }
+
+        if let Some((target, end, _)) = target {
             let castle_level: u8 = match faction {
                 Faction::Player => self.player_castle.level,
                 Faction::Enemy => self.enemy_castle.level,
             };
-            self.apply_damage(index, 13.0 + castle_level as f32 * 6.0, 0.1);
+            let damage: f32 = 13.0 + castle_level as f32 * 6.0;
+            match target {
+                AttackTarget::Unit(index) => {
+                    self.apply_damage(index, damage, 0.1);
+                }
+                AttackTarget::Hero => {
+                    self.apply_hero_damage(damage, 0.1);
+                }
+                AttackTarget::Castle(_) => {}
+            }
             let castle: &mut Castle = match faction {
                 Faction::Player => &mut self.player_castle,
                 Faction::Enemy => &mut self.enemy_castle,
@@ -728,7 +996,10 @@ impl UnitesWar {
         self.battle_time += dt;
         self.update_economy(dt);
         self.spell_cooldown = (self.spell_cooldown - dt).max(0.0);
+        self.hero.attack_cooldown = (self.hero.attack_cooldown - dt).max(0.0);
+        self.hero.hit_flash = (self.hero.hit_flash - dt).max(0.0);
 
+        self.update_player_recruit_queue(dt, width, height);
         self.update_enemy_ai(dt, width, height);
         self.update_units(dt, width);
         self.update_castle_attack(Faction::Player, dt, width);
@@ -766,7 +1037,11 @@ impl Game for UnitesWar {
         ctx.input_mut().bind(Action::Restart, KeyCode::KeyR.into());
         ctx.input_mut().bind(Action::Exit, KeyCode::Escape.into());
         ctx.input_mut().bind(Action::Click, MouseButton::Left.into());
-        log::info!("Unites War: 1-4 recruit | Q lightning | U upgrade | H skills | R restart | ESC exit");
+        ctx.input_mut().bind(Action::HeroAdvance, KeyCode::KeyD.into());
+        ctx.input_mut().bind(Action::HeroAdvance, KeyCode::ArrowRight.into());
+        ctx.input_mut().bind(Action::HeroRetreat, KeyCode::KeyA.into());
+        ctx.input_mut().bind(Action::HeroRetreat, KeyCode::ArrowLeft.into());
+        log::info!("Unites War: A/D hero | auto hero attack | 1-4 recruit | Q lightning | U upgrade | H skills");
     }
 
     fn on_update(&mut self, ctx: &mut dyn GameContext<Self::Action>) {
@@ -780,7 +1055,7 @@ impl Game for UnitesWar {
                 return;
             }
             if ctx.input().just_pressed(Action::Confirm) {
-                self.start_battle();
+                self.open_stage_select();
                 return;
             }
             if ctx.input().just_pressed(Action::Click)
@@ -789,9 +1064,32 @@ impl Game for UnitesWar {
                 let (play_pos, play_size): (Vec2, Vec2) = Self::menu_button_rect(0, width, height);
                 let (exit_pos, exit_size): (Vec2, Vec2) = Self::menu_button_rect(1, width, height);
                 if Self::point_in_rect(mouse, play_pos, play_size) {
-                    self.start_battle();
+                    self.open_stage_select();
                 } else if Self::point_in_rect(mouse, exit_pos, exit_size) {
                     ctx.exit();
+                }
+            }
+            return;
+        }
+
+        if self.screen == ScreenState::StageSelect {
+            if ctx.input().just_pressed(Action::Exit) {
+                self.screen = ScreenState::Menu;
+                return;
+            }
+            if ctx.input().just_pressed(Action::Confirm) {
+                self.start_battle();
+                return;
+            }
+            if ctx.input().just_pressed(Action::Click)
+                && let Some(mouse) = ctx.input().mouse_position()
+            {
+                let (first_stage_pos, first_stage_size): (Vec2, Vec2) = Self::stage_card_rect(0, width, height);
+                let (back_pos, back_size): (Vec2, Vec2) = Self::stage_back_button_rect(width, height);
+                if Self::point_in_rect(mouse, first_stage_pos, first_stage_size) {
+                    self.start_battle();
+                } else if Self::point_in_rect(mouse, back_pos, back_size) {
+                    self.screen = ScreenState::Menu;
                 }
             }
             return;
@@ -838,17 +1136,27 @@ impl Game for UnitesWar {
         }
 
         if self.state == BattleState::Playing {
+            let mut hero_direction: f32 = 0.0;
+            if ctx.input().held(Action::HeroAdvance) {
+                hero_direction += 1.0;
+            }
+            if ctx.input().held(Action::HeroRetreat) {
+                hero_direction -= 1.0;
+            }
+            self.update_hero_movement(hero_direction, dt, width, height);
+            self.fire_hero(width);
+
             if ctx.input().just_pressed(Action::RecruitRunner) {
-                self.recruit(Faction::Player, UnitKind::Runner, width, height);
+                self.enqueue_player_recruit(UnitKind::Runner);
             }
             if ctx.input().just_pressed(Action::RecruitGuard) {
-                self.recruit(Faction::Player, UnitKind::Guard, width, height);
+                self.enqueue_player_recruit(UnitKind::Guard);
             }
             if ctx.input().just_pressed(Action::RecruitArcher) {
-                self.recruit(Faction::Player, UnitKind::Archer, width, height);
+                self.enqueue_player_recruit(UnitKind::Archer);
             }
             if ctx.input().just_pressed(Action::RecruitBrute) {
-                self.recruit(Faction::Player, UnitKind::Brute, width, height);
+                self.enqueue_player_recruit(UnitKind::Brute);
             }
             if ctx.input().just_pressed(Action::Upgrade) {
                 self.upgrade(Faction::Player);
@@ -888,6 +1196,10 @@ impl Game for UnitesWar {
             self.draw_menu(ctx, width, height);
             return;
         }
+        if self.screen == ScreenState::StageSelect {
+            self.draw_stage_select(ctx, width, height);
+            return;
+        }
 
         Self::draw_background(ctx, width, height);
         Self::draw_castle(ctx, &self.player_castle, Faction::Player, width, height);
@@ -896,6 +1208,8 @@ impl Game for UnitesWar {
         for unit in &self.units {
             self.draw_unit(ctx, unit);
         }
+        self.draw_hero(ctx);
+        self.draw_hero_aim(ctx, width);
         self.draw_effects(ctx);
         self.draw_hud(ctx, width, height);
         self.draw_skills_panel(ctx, width, height);

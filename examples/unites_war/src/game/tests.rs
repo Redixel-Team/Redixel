@@ -12,6 +12,20 @@ fn game_opens_in_menu_and_can_select_the_first_stage() {
 }
 
 #[test]
+fn battle_reset_preserves_loaded_texture_handles() {
+    let mut game: UnitesWar = UnitesWar::new();
+    game.textures = GameTextures {
+        stage_01_background: Some(TextureId::new(4)),
+        stage_01_fortress: Some(TextureId::new(7)),
+    };
+    let loaded_textures: GameTextures = game.textures;
+
+    game.start_battle();
+
+    assert_eq!(game.textures, loaded_textures);
+}
+
+#[test]
 fn stage_select_has_one_playable_stage_and_future_slots() {
     let first: (Vec2, Vec2) = UnitesWar::stage_card_rect(0, 1280.0, 720.0);
     let second: (Vec2, Vec2) = UnitesWar::stage_card_rect(1, 1280.0, 720.0);

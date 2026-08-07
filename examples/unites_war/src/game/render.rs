@@ -136,9 +136,9 @@ impl UnitesWar {
     }
 
     pub(super) fn draw_menu(&self, ctx: &mut dyn GameContext<Action>, width: f32, height: f32) {
-        Self::draw_background(ctx, width, height);
-        Self::draw_castle(ctx, &self.player_castle, Faction::Player, width, height);
-        Self::draw_castle(ctx, &self.enemy_castle, Faction::Enemy, width, height);
+        self.draw_background(ctx, width, height);
+        self.draw_castle(ctx, &self.player_castle, Faction::Player, width, height);
+        self.draw_castle(ctx, &self.enemy_castle, Faction::Enemy, width, height);
 
         let panel_width: f32 = (width * 0.62).clamp(390.0, 700.0);
         let panel_height: f32 = (height * 0.76).clamp(440.0, 560.0);
@@ -218,9 +218,9 @@ impl UnitesWar {
     }
 
     pub(super) fn draw_stage_select(&self, ctx: &mut dyn GameContext<Action>, width: f32, height: f32) {
-        Self::draw_background(ctx, width, height);
-        Self::draw_castle(ctx, &self.player_castle, Faction::Player, width, height);
-        Self::draw_castle(ctx, &self.enemy_castle, Faction::Enemy, width, height);
+        self.draw_background(ctx, width, height);
+        self.draw_castle(ctx, &self.player_castle, Faction::Player, width, height);
+        self.draw_castle(ctx, &self.enemy_castle, Faction::Enemy, width, height);
         ctx.draw_rect(Vec2::ZERO, Vec2::new(width, height), Color::from_rgba8(12, 18, 18, 120));
 
         let (panel_pos, panel_size): (Vec2, Vec2) = Self::stage_select_panel_rect(width, height);
@@ -376,10 +376,16 @@ impl UnitesWar {
         Self::draw_text_centered(ctx, "VOLTAR", width * 0.5, back_pos.y + 13.0, 1.9, Color::WHITE);
     }
 
-    pub(super) fn draw_background(ctx: &mut dyn GameContext<Action>, width: f32, height: f32) {
+    pub(super) fn draw_background(&self, ctx: &mut dyn GameContext<Action>, width: f32, height: f32) {
         let ground: f32 = Self::ground_y(height);
         let horizon: f32 = ground - 142.0;
         ctx.clear_color(Color::from_rgba8(41, 71, 79, 255));
+
+        if let Some(texture) = self.textures.stage_01_background {
+            ctx.draw_sprite(Vec2::ZERO, Vec2::new(width, height), texture);
+            return;
+        }
+
         ctx.draw_rect(
             Vec2::new(0.0, ground - 190.0),
             Vec2::new(width, 190.0),
@@ -441,6 +447,7 @@ impl UnitesWar {
     }
 
     pub(super) fn draw_castle(
+        &self,
         ctx: &mut dyn GameContext<Action>,
         castle: &Castle,
         faction: Faction,
@@ -456,42 +463,57 @@ impl UnitesWar {
         let depth: Vec2 = Vec2::new(12.0, -9.0);
         let dark: Color = stone.lerp(Color::BLACK, 0.27);
 
-        Self::draw_shadow(ctx, Vec2::new(x + 9.0, ground + 5.0), 128.0, 32.0);
-        Self::draw_prism(
-            ctx,
-            Vec2::new(x - CASTLE_WIDTH * 0.5, ground - 126.0),
-            Vec2::new(CASTLE_WIDTH, 126.0),
-            depth,
-            dark,
-        );
-        Self::draw_prism(ctx, Vec2::new(x - 38.0, ground - 153.0), Vec2::new(31.0, 53.0), depth, stone);
-        Self::draw_prism(ctx, Vec2::new(x + 7.0, ground - 153.0), Vec2::new(31.0, 53.0), depth, stone);
-        Self::draw_prism(
-            ctx,
-            Vec2::new(x - 32.0, ground - 91.0),
-            Vec2::new(64.0, 91.0),
-            Vec2::new(9.0, -7.0),
-            stone,
-        );
+        let visual_x: f32 = x + faction.direction() * 18.0;
+        Self::draw_shadow(ctx, Vec2::new(visual_x, ground + 5.0), 158.0, 32.0);
 
-        Self::draw_prism(
-            ctx,
-            Vec2::new(x - 13.0, ground - 55.0),
-            Vec2::new(26.0, 55.0),
-            Vec2::new(4.0, -3.0),
-            Color::from_rgba8(35, 35, 31, 255),
-        );
-
-        // Projected battlements and a flag make the castle read as a low-poly model.
-        for battlement in [-34.0_f32, -12.0, 10.0, 32.0] {
+        if let Some(texture) = self.textures.stage_01_fortress {
+            let sprite_size: Vec2 = Vec2::splat(180.0);
+            let tint: Color = match faction {
+                Faction::Player => Color::from_rgba8(205, 255, 220, 255),
+                Faction::Enemy => Color::from_rgba8(255, 214, 205, 255),
+            };
+            ctx.draw_sprite_tinted(
+                Vec2::new(visual_x - sprite_size.x * 0.5, ground - 168.0),
+                sprite_size,
+                texture,
+                tint,
+            );
+        } else {
             Self::draw_prism(
                 ctx,
-                Vec2::new(x + battlement - 7.0, ground - 137.0),
-                Vec2::new(14.0, 17.0),
-                Vec2::new(5.0, -4.0),
-                stone.lerp(Color::WHITE, 0.06),
+                Vec2::new(x - CASTLE_WIDTH * 0.5, ground - 126.0),
+                Vec2::new(CASTLE_WIDTH, 126.0),
+                depth,
+                dark,
             );
+            Self::draw_prism(ctx, Vec2::new(x - 38.0, ground - 153.0), Vec2::new(31.0, 53.0), depth, stone);
+            Self::draw_prism(ctx, Vec2::new(x + 7.0, ground - 153.0), Vec2::new(31.0, 53.0), depth, stone);
+            Self::draw_prism(
+                ctx,
+                Vec2::new(x - 32.0, ground - 91.0),
+                Vec2::new(64.0, 91.0),
+                Vec2::new(9.0, -7.0),
+                stone,
+            );
+            Self::draw_prism(
+                ctx,
+                Vec2::new(x - 13.0, ground - 55.0),
+                Vec2::new(26.0, 55.0),
+                Vec2::new(4.0, -3.0),
+                Color::from_rgba8(35, 35, 31, 255),
+            );
+
+            for battlement in [-34.0_f32, -12.0, 10.0, 32.0] {
+                Self::draw_prism(
+                    ctx,
+                    Vec2::new(x + battlement - 7.0, ground - 137.0),
+                    Vec2::new(14.0, 17.0),
+                    Vec2::new(5.0, -4.0),
+                    stone.lerp(Color::WHITE, 0.06),
+                );
+            }
         }
+
         let flag_direction: f32 = faction.direction();
         let flag_x: f32 = x - flag_direction * 18.0;
         ctx.draw_rect(

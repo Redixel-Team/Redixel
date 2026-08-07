@@ -7,6 +7,9 @@ mod render;
 
 use passives::*;
 
+const STAGE_01_BACKGROUND_PNG: &[u8] = include_bytes!("../../assets/stage_01/background.png");
+const STAGE_01_FORTRESS_PNG: &[u8] = include_bytes!("../../assets/stage_01/fortress.png");
+
 const STARTING_COINS: f32 = 90.0;
 const PASSIVE_COIN_RATE: f32 = 4.0;
 const ENEMY_PASSIVE_COIN_RATE: f32 = 4.4;
@@ -273,6 +276,12 @@ struct AttackIntent {
     target: AttackTarget,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+struct GameTextures {
+    stage_01_background: Option<TextureId>,
+    stage_01_fortress: Option<TextureId>,
+}
+
 pub(crate) struct UnitesWar {
     units: Vec<Unit>,
     player_castle: Castle,
@@ -291,6 +300,7 @@ pub(crate) struct UnitesWar {
     screen: ScreenState,
     state: BattleState,
     rng: u32,
+    textures: GameTextures,
 }
 
 impl UnitesWar {
@@ -313,11 +323,14 @@ impl UnitesWar {
             screen: ScreenState::Menu,
             state: BattleState::Playing,
             rng: 0xC1A4_5EED,
+            textures: GameTextures::default(),
         }
     }
 
     fn reset(&mut self) {
+        let textures: GameTextures = self.textures;
         *self = Self::new();
+        self.textures = textures;
         self.screen = ScreenState::Battle;
     }
 
@@ -1025,6 +1038,11 @@ impl Game for UnitesWar {
     type Action = Action;
 
     fn on_start(&mut self, ctx: &mut dyn GameContext<Self::Action>) {
+        self.textures = GameTextures {
+            stage_01_background: Some(ctx.load_texture(STAGE_01_BACKGROUND_PNG)),
+            stage_01_fortress: Some(ctx.load_texture(STAGE_01_FORTRESS_PNG)),
+        };
+
         ctx.input_mut().bind(Action::RecruitRunner, KeyCode::Digit1.into());
         ctx.input_mut().bind(Action::RecruitGuard, KeyCode::Digit2.into());
         ctx.input_mut().bind(Action::RecruitArcher, KeyCode::Digit3.into());
@@ -1201,9 +1219,9 @@ impl Game for UnitesWar {
             return;
         }
 
-        Self::draw_background(ctx, width, height);
-        Self::draw_castle(ctx, &self.player_castle, Faction::Player, width, height);
-        Self::draw_castle(ctx, &self.enemy_castle, Faction::Enemy, width, height);
+        self.draw_background(ctx, width, height);
+        self.draw_castle(ctx, &self.player_castle, Faction::Player, width, height);
+        self.draw_castle(ctx, &self.enemy_castle, Faction::Enemy, width, height);
 
         for unit in &self.units {
             self.draw_unit(ctx, unit);

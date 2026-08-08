@@ -292,6 +292,7 @@ redixel/
     ├── pong/                   # Classic 2D game demonstrating input and physics
     ├── shooter/                # 2D top-down shooter with AI, weapons, and particles
     ├── shooter_mp/             # Authoritative-server multiplayer shooter
+    ├── solar_system/           # CPU-driven orbits, GPU-driven pulse via the time uniform
     ├── sprite/                 # Texture loading and UV-mapped 3D geometry
     ├── triangle/               # Basic 2D rendering example
     └── triangle_3d/            # Basic 3D rendering and camera example

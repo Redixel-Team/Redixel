@@ -18,7 +18,7 @@ use redixel_math::{Color, Mat4, Vec2, Vec3};
 use crate::{
     batch::{MeshBatch, SpriteBatch},
     device::GpuDevice,
-    pipeline::ShapePipeline,
+    pipeline::{GlobalUniforms, ShapePipeline},
     texture::TextureRegistry,
 };
 
@@ -46,6 +46,7 @@ impl Default for RendererConfig {
 /// Commands collected during `on_render`, submitted to the GPU in one pass.
 pub struct DrawQueue {
     pub clear: Color,
+    pub glow: f32,
     pub batch_2d: SpriteBatch,
     pub batch_3d: MeshBatch,
 }
@@ -81,6 +82,7 @@ impl Renderer {
             textures,
             queue: DrawQueue {
                 clear: Color::rgb(0.1, 0.2, 0.3),
+                glow: 0.0,
                 batch_2d,
                 batch_3d,
             },
@@ -134,6 +136,13 @@ impl Renderer {
         self.queue.clear = color;
     }
 
+    /// Sets the strength of the shader's time-driven brightness modulation for
+    /// the next frame's 3D batch. `0.0` — the default — disables it entirely;
+    /// the 2D batch always renders with it disabled.
+    pub fn set_glow(&mut self, amount: f32) {
+        self.queue.glow = amount;
+    }
+
     /// Queues a filled rectangle.
     pub fn draw_rect(&mut self, position: Vec2, size: Vec2, color: Color) {
         self.queue.batch_2d.draw_rect(position, size, color);
@@ -154,6 +163,12 @@ impl Renderer {
         self.queue.batch_3d.draw_triangle_3d(p1, p2, p3, color);
     }
 
+    /// Queues a triangle in 3D view space with an independent colour per
+    /// vertex, interpolated across the face.
+    pub fn draw_triangle_3d_shaded(&mut self, points: [Vec3; 3], colors: [Color; 3]) {
+        self.queue.batch_3d.draw_triangle_3d_shaded(points, colors);
+    }
+
     /// Queues a textured triangle in 3D view space.
     pub fn draw_triangle_3d_textured(&mut self, points: [Vec3; 3], uvs: [Vec2; 3], texture: TextureId, tint: Color) {
         self.queue
@@ -161,29 +176,70 @@ impl Renderer {
             .draw_triangle_3d_textured(points, uvs, texture, tint);
     }
 
+    /// Uploads this frame's [`GlobalUniforms`] to both uniform blocks.
+    ///
+    /// The matrices are rebuilt from the surface configuration every frame,
+    /// which is what keeps geometry proportional across a resize without the
+    /// resize path having to re-upload anything. `resolution` carries those
+    /// same dimensions to the shader, where the projection is no help.
+    ///
+    /// `view` is the identity in both blocks: the engine has no camera
+    /// transform yet, and 3D draw calls arrive already in view space.
+    ///
+    /// `glow` reaches only the 3D block — it modulates scene brightness, and 2D
+    /// content (HUDs, overlays) is exactly what should not throb with the
+    /// scene — so the 2D block always carries `0.0`, the identity.
+    ///
+    /// `time` is seconds since startup, narrowed to `f32` only here — WGSL
+    /// uniforms have no `f64`. Its resolution decays to about a millisecond
+    /// after a couple of hours of uptime; an effect needing better than that
+    /// wants the time reduced modulo a multiple of `TAU` before this call, not
+    /// a wider type.
+    pub fn update_uniforms(&self, time: f32) {
+        let (w, h): (u32, u32) = self.surface_size();
+        let resolution: [f32; 2] = [w as f32, h as f32];
+
+        let ortho: Mat4 = Mat4::orthographic(0.0, w as f32, h as f32, 0.0, -1.0, 1.0);
+        let uniforms_2d: GlobalUniforms = GlobalUniforms {
+            view: Mat4::IDENTITY.cols,
+            projection: ortho.cols,
+            resolution,
+            time,
+            glow: 0.0,
+        };
+        self.pipeline.globals_2d.update(&self.device.queue, &uniforms_2d);
+
+        let aspect: f32 = w as f32 / h as f32;
+        let perspective: Mat4 = Mat4::perspective(CAMERA_FOV_Y_DEGREES.to_radians(), aspect, CAMERA_NEAR, CAMERA_FAR);
+        let uniforms_3d: GlobalUniforms = GlobalUniforms {
+            view: Mat4::IDENTITY.cols,
+            projection: perspective.cols,
+            resolution,
+            time,
+            glow: self.queue.glow,
+        };
+        self.pipeline.globals_3d.update(&self.device.queue, &uniforms_3d);
+    }
+
     /// Flushes all queued draw calls and presents the frame.
     ///
-    /// 1. Uploads the orthographic and perspective camera matrices
+    /// 1. Uploads the frame's global uniforms to both blocks
     /// 2. Begins the render pass (clear colour + depth)
     /// 3. Flushes the 3D batch, then the 2D batch, each with its own pipeline
-    ///    and camera
+    ///    and uniform block
     /// 4. Submits commands and presents
     ///
     /// 3D goes first so 2D lands on top of the finished scene and blends
     /// against it rather than against the clear colour.
-    pub fn render(&mut self) -> Result<(), RedixelError> {
+    ///
+    /// The uniform upload is driven from here rather than left to the caller so
+    /// no frame can be presented against a stale surface size.
+    pub fn render(&mut self, time: f32) -> Result<(), RedixelError> {
         let Some(surface) = &self.device.surface else {
             return Ok(());
         };
 
-        let (w, h): (u32, u32) = self.surface_size();
-
-        let ortho: Mat4 = Mat4::orthographic(0.0, w as f32, h as f32, 0.0, -1.0, 1.0);
-        self.pipeline.camera_2d.update(&self.device.queue, ortho.cols);
-
-        let aspect: f32 = w as f32 / h as f32;
-        let perspective: Mat4 = Mat4::perspective(CAMERA_FOV_Y_DEGREES.to_radians(), aspect, CAMERA_NEAR, CAMERA_FAR);
-        self.pipeline.camera_3d.update(&self.device.queue, perspective.cols);
+        self.update_uniforms(time);
 
         let output: SurfaceTexture = Self::get_surface_texture(surface)?;
         let view: TextureView = output.texture.create_view(&TextureViewDescriptor::default());
@@ -220,13 +276,13 @@ impl Renderer {
             });
 
             pass.set_pipeline(&self.pipeline.pipeline_3d);
-            pass.set_bind_group(0, &self.pipeline.camera_3d.bind_group, &[]);
+            pass.set_bind_group(0, &self.pipeline.globals_3d.bind_group, &[]);
             self.queue
                 .batch_3d
                 .flush(&self.device.device, &self.device.queue, &mut pass, &self.textures);
 
             pass.set_pipeline(&self.pipeline.pipeline_2d);
-            pass.set_bind_group(0, &self.pipeline.camera_2d.bind_group, &[]);
+            pass.set_bind_group(0, &self.pipeline.globals_2d.bind_group, &[]);
             self.queue
                 .batch_2d
                 .flush(&self.device.device, &self.device.queue, &mut pass, &self.textures);

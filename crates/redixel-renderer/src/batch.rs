@@ -90,6 +90,17 @@ fn triangle_vertices_3d(points: [Vec3; 3], uvs: [Vec2; 3], color: Color) -> [Ver
     })
 }
 
+/// Builds the three corners of a 3D triangle as [`triangle_vertices_3d`] does,
+/// but with an independent colour per corner, which the rasteriser then
+/// interpolates across the face.
+fn triangle_vertices_3d_shaded(points: [Vec3; 3], colors: [Color; 3]) -> [Vertex; 3] {
+    std::array::from_fn(|i: usize| Vertex {
+        position: points[i].to_array(),
+        color: colors[i].to_array(),
+        uv: [0.0, 0.0],
+    })
+}
+
 /// A contiguous slice of the index buffer sharing one texture, and so
 /// submittable as a single draw call.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -343,6 +354,17 @@ impl MeshBatch {
             &TRIANGLE_INDICES,
             None,
         );
+    }
+
+    /// Queues a triangle in 3D view space with an independent colour per
+    /// vertex, interpolated across the face.
+    ///
+    /// This is the building block for smooth (Gouraud) shading and for soft
+    /// gradients — a vertex whose colour carries zero alpha fades the face out
+    /// towards that corner.
+    pub fn draw_triangle_3d_shaded(&mut self, points: [Vec3; 3], colors: [Color; 3]) {
+        self.buffers
+            .push(&triangle_vertices_3d_shaded(points, colors), &TRIANGLE_INDICES, None);
     }
 
     /// Queues a textured triangle in 3D view space.

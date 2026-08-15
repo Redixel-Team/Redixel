@@ -132,6 +132,24 @@ pub trait GameContext<A: InputAction> {
     /// Height of the rendering surface in pixels.
     fn surface_height(&self) -> u32;
 
+    /// Requests a new rendering-surface size in physical pixels.
+    ///
+    /// Window systems may clamp or ignore the request. The actual applied size
+    /// is reported later through [`surface_width`](Self::surface_width) and
+    /// [`surface_height`](Self::surface_height). Headless contexts and custom
+    /// contexts that do not manage a window may leave the default no-op.
+    fn request_surface_size(&mut self, _width: u32, _height: u32) {}
+
+    /// Returns whether the rendering window is currently fullscreen.
+    fn is_fullscreen(&self) -> bool {
+        false
+    }
+
+    /// Requests borderless fullscreen when `fullscreen` is `true`, or windowed
+    /// mode when it is `false`. Headless and custom contexts may leave the
+    /// default no-op.
+    fn request_fullscreen(&mut self, _fullscreen: bool) {}
+
     /// Returns a read-only view of the current input state.
     ///
     /// Use this to query actions, raw keys, and mouse state.

@@ -3,9 +3,10 @@
 A playable side-view strategy prototype inspired by the unit production and
 fortress combat loop of classic browser war games.
 
-The battlefield uses projected 2.5D geometry built from the engine's triangle
-API. Units, castles, controls, projectiles, shadows, and the ground are rendered
-as low-poly extruded shapes without requiring a native 3D pipeline.
+The battlefield mixes projected 2.5D geometry with pixel-art textures. The
+Shadow Archer and clan fortresses extrude their own transparent silhouettes in
+layers, while units, controls, projectiles, shadows, and effects retain the
+low-poly shape language without requiring a native 3D model pipeline.
 
 ## Controls
 
@@ -38,11 +39,12 @@ one passive for each unit type: Momentum, Bulwark, Piercing Shot, and Rage.
 Purchases affect current and future player units for the rest of that battle.
 Close the panel with `H`, `Esc`, or the `FECHAR` button.
 
-Stage 1 also starts with **Arqueira Sombria**, a controllable long-range hero
-with low health. Her arrows pierce up to four enemy troops and deal bonus damage
-to the enemy fortress when she advances close enough. The player only controls
-her movement direction; targeting and firing are automatic. Her targeting
-reticle cycles through three visual styles after every shot.
+Stage 1 also starts with **Arqueira Sombria**, a controllable hero with low
+health and the same attack range as a regular archer. Her arrows pierce up to
+four enemy troops and deal bonus damage to the enemy fortress when she advances
+close enough. The player only controls her movement direction; targeting and
+firing are automatic. Her targeting reticle cycles through three visual styles
+after every shot.
 
 ## Run
 

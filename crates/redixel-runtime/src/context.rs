@@ -71,6 +71,9 @@ pub struct Context<A: InputAction> {
     fixed_alpha: f64,
     surface_width: u32,
     surface_height: u32,
+    surface_size_request: Option<(u32, u32)>,
+    fullscreen: bool,
+    fullscreen_request: Option<bool>,
     next_texture_id: u32,
     pub(crate) input: InputManager<A>,
     pub(crate) commands: Vec<DrawCommand>,
@@ -96,6 +99,9 @@ impl<A: InputAction> Context<A> {
             fixed_alpha: 0.0,
             surface_width: 0,
             surface_height: 0,
+            surface_size_request: None,
+            fullscreen: false,
+            fullscreen_request: None,
             next_texture_id: 0,
             input: InputManager::new(),
             commands: Vec::with_capacity(1024),
@@ -149,6 +155,18 @@ impl<A: InputAction> Context<A> {
         self.surface_height = height;
     }
 
+    pub(crate) fn take_surface_size_request(&mut self) -> Option<(u32, u32)> {
+        self.surface_size_request.take()
+    }
+
+    pub(crate) fn update_fullscreen(&mut self, fullscreen: bool) {
+        self.fullscreen = fullscreen;
+    }
+
+    pub(crate) fn take_fullscreen_request(&mut self) -> Option<bool> {
+        self.fullscreen_request.take()
+    }
+
     /// Advances input state machine. Called at the start of every frame,
     /// before OS events are processed.
     pub(crate) fn tick_input(&mut self) {
@@ -177,6 +195,8 @@ impl<A: InputAction> Context<A> {
     /// grow for the life of the process.
     pub(crate) fn reset_frame(&mut self) {
         self.should_exit = false;
+        self.surface_size_request = None;
+        self.fullscreen_request = None;
         self.commands.clear();
         self.texture_requests.clear();
     }
@@ -233,6 +253,21 @@ impl<A: InputAction> GameContext<A> for Context<A> {
 
     fn surface_height(&self) -> u32 {
         self.surface_height
+    }
+
+    fn request_surface_size(&mut self, width: u32, height: u32) {
+        if width > 0 && height > 0 {
+            self.surface_size_request = Some((width, height));
+        }
+    }
+
+    fn is_fullscreen(&self) -> bool {
+        self.fullscreen
+    }
+
+    fn request_fullscreen(&mut self, fullscreen: bool) {
+        self.fullscreen = fullscreen;
+        self.fullscreen_request = Some(fullscreen);
     }
 
     fn input(&self) -> &dyn InputQuery<A> {

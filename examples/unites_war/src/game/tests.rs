@@ -4,6 +4,9 @@ use super::*;
 fn game_opens_in_menu_and_can_select_the_first_stage() {
     let mut game: UnitesWar = UnitesWar::new();
     assert_eq!(game.screen, ScreenState::Menu);
+    game.open_settings();
+    assert_eq!(game.screen, ScreenState::Settings);
+    game.screen = ScreenState::Menu;
     game.open_stage_select();
     assert_eq!(game.screen, ScreenState::StageSelect);
     game.start_battle();
@@ -17,12 +20,79 @@ fn battle_reset_preserves_loaded_texture_handles() {
     game.textures = GameTextures {
         stage_01_background: Some(TextureId::new(4)),
         stage_01_fortress: Some(TextureId::new(7)),
+        shadow_archer: Some(TextureId::new(9)),
     };
+    game.selected_resolution = 4;
+    game.last_surface_width = Some(1920.0);
     let loaded_textures: GameTextures = game.textures;
 
     game.start_battle();
 
     assert_eq!(game.textures, loaded_textures);
+    assert_eq!(game.selected_resolution, 4);
+    assert_eq!(game.last_surface_width, Some(1920.0));
+}
+
+#[test]
+fn settings_offer_common_resolutions_through_full_hd() {
+    assert_eq!(
+        RESOLUTIONS.first(),
+        Some(&Resolution {
+            width: 960,
+            height: 540
+        })
+    );
+    assert_eq!(
+        RESOLUTIONS.last(),
+        Some(&Resolution {
+            width: 1920,
+            height: 1080
+        })
+    );
+    assert_eq!(UnitesWar::closest_resolution(1278, 718), 1);
+
+    let first: (Vec2, Vec2) = UnitesWar::resolution_button_rect(0, 960.0, 540.0);
+    let second: (Vec2, Vec2) = UnitesWar::resolution_button_rect(1, 960.0, 540.0);
+    let third: (Vec2, Vec2) = UnitesWar::resolution_button_rect(2, 960.0, 540.0);
+    assert!(second.0.x > first.0.x);
+    assert_eq!(second.0.y, first.0.y);
+    assert_eq!(third.0.x, first.0.x);
+    assert!(third.0.y > first.0.y);
+
+    let windowed: (Vec2, Vec2) = UnitesWar::window_mode_button_rect(0, 960.0, 540.0);
+    let fullscreen: (Vec2, Vec2) = UnitesWar::window_mode_button_rect(1, 960.0, 540.0);
+    let back: (Vec2, Vec2) = UnitesWar::settings_back_button_rect(960.0, 540.0);
+    assert!(fullscreen.0.x > windowed.0.x);
+    assert_eq!(fullscreen.0.y, windowed.0.y);
+    assert!(windowed.0.y + windowed.1.y < back.0.y);
+}
+
+#[test]
+fn compact_battle_hud_fits_the_smallest_supported_resolution() {
+    let width: f32 = 960.0;
+    let height: f32 = 540.0;
+    let (panel_pos, panel_size): (Vec2, Vec2) = UnitesWar::command_panel_rect(width, height);
+    let (first_pos, _): (Vec2, Vec2) = UnitesWar::button_rect(0, width, height);
+    let (last_pos, last_size): (Vec2, Vec2) = UnitesWar::button_rect(4, width, height);
+    let (skills_pos, skills_size): (Vec2, Vec2) = UnitesWar::skills_button_rect(width, height);
+
+    assert!(first_pos.x >= panel_pos.x && first_pos.y >= panel_pos.y);
+    assert!(last_pos.x + last_size.x <= panel_pos.x + panel_size.x);
+    assert!(last_pos.y + last_size.y <= panel_pos.y + panel_size.y);
+    assert!(panel_pos.x + panel_size.x < skills_pos.x);
+    assert!(skills_pos.x + skills_size.x <= width);
+    assert!(skills_pos.y + skills_size.y <= height);
+}
+
+#[test]
+fn battle_hud_scales_with_the_selected_resolution() {
+    assert_eq!(UnitesWar::hud_scale(960.0, 540.0), 1.0);
+    assert!((UnitesWar::hud_scale(1280.0, 720.0) - 4.0 / 3.0).abs() < 0.0001);
+    assert_eq!(UnitesWar::hud_scale(1920.0, 1080.0), 2.0);
+
+    let (_, base_size): (Vec2, Vec2) = UnitesWar::command_panel_rect(960.0, 540.0);
+    let (_, full_hd_size): (Vec2, Vec2) = UnitesWar::command_panel_rect(1920.0, 1080.0);
+    assert_eq!(full_hd_size, base_size * 2.0);
 }
 
 #[test]
@@ -31,6 +101,40 @@ fn stage_select_has_one_playable_stage_and_future_slots() {
     let second: (Vec2, Vec2) = UnitesWar::stage_card_rect(1, 1280.0, 720.0);
     assert!(second.0.x > first.0.x);
     assert_eq!(first.1, second.1);
+}
+
+#[test]
+fn resizing_the_battlefield_preserves_troop_progress_and_grounding() {
+    let mut game: UnitesWar = UnitesWar::new();
+    let initial_width: f32 = 1280.0;
+    game.last_surface_width = Some(initial_width);
+    for (index, kind) in UnitKind::ALL.into_iter().enumerate() {
+        game.units
+            .push(Unit::new(kind, Faction::Player, Vec2::new(180.0 + index as f32 * 70.0, 0.0), 0));
+    }
+    let progress = |x: f32, width: f32| {
+        let left: f32 = UnitesWar::castle_x(Faction::Player, width);
+        let right: f32 = UnitesWar::castle_x(Faction::Enemy, width);
+        (x - left) / (right - left)
+    };
+    let original_progress: Vec<f32> = game
+        .units
+        .iter()
+        .map(|unit| progress(unit.pos.x, initial_width))
+        .collect();
+    let original_hero_progress: f32 = progress(game.hero.pos.x, initial_width);
+
+    for (width, height) in [(960.0, 540.0), (1920.0, 1080.0)] {
+        game.align_battlefield_to_surface(width, height);
+
+        for (index, unit) in game.units.iter().enumerate() {
+            assert!((progress(unit.pos.x, width) - original_progress[index]).abs() < 0.0001);
+            assert_eq!(unit.pos.y, UnitesWar::unit_y(unit.kind, height));
+        }
+        assert!((progress(game.hero.pos.x, width) - original_hero_progress).abs() < 0.0001);
+        assert_eq!(game.hero.pos.y, UnitesWar::ground_y(height) - HERO_SIZE.y * 0.5);
+        assert_eq!(game.last_surface_width, Some(width));
+    }
 }
 
 #[test]
@@ -52,6 +156,11 @@ fn shadow_archer_can_advance_and_retreat_within_the_battlefield() {
 }
 
 #[test]
+fn shadow_archer_has_the_same_range_as_a_regular_archer() {
+    assert_eq!(HERO_RANGE, UnitKind::Archer.stats().range);
+}
+
+#[test]
 fn shadow_archer_arrow_pierces_up_to_four_enemy_troops() {
     let mut game: UnitesWar = UnitesWar::new();
     game.start_battle();
@@ -60,7 +169,7 @@ fn shadow_archer_arrow_pierces_up_to_four_enemy_troops() {
         game.units.push(Unit::new(
             UnitKind::Guard,
             Faction::Enemy,
-            Vec2::new(300.0 + index as f32 * 50.0, 400.0),
+            Vec2::new(300.0 + index as f32 * 12.0, 400.0),
             0,
         ));
     }
@@ -118,9 +227,12 @@ fn shadow_archer_waits_for_a_target_before_firing_automatically() {
     game.units.push(Unit::new(
         UnitKind::Runner,
         Faction::Enemy,
-        game.hero.pos + Vec2::new(200.0, 0.0),
+        game.hero.pos + Vec2::new(HERO_RANGE + 1.0, 0.0),
         0,
     ));
+    assert!(!game.fire_hero(1280.0));
+
+    game.units[0].pos.x = game.hero.pos.x + HERO_RANGE;
     assert!(game.fire_hero(1280.0));
 }
 
@@ -137,6 +249,43 @@ fn enemy_troops_can_attack_the_shadow_archer() {
     game.update_units(0.0, 1280.0);
 
     assert!(game.hero.health < health_before);
+}
+
+#[test]
+fn melee_troops_lunge_and_only_create_an_impact_at_the_target() {
+    let mut game: UnitesWar = UnitesWar::new();
+    game.start_battle();
+    game.units
+        .push(Unit::new(UnitKind::Runner, Faction::Player, Vec2::new(300.0, 400.0), 0));
+    game.units
+        .push(Unit::new(UnitKind::Guard, Faction::Enemy, Vec2::new(325.0, 400.0), 0));
+    game.units[0].attack_cooldown = 0.0;
+
+    game.update_units(0.0, 1280.0);
+
+    assert_eq!(game.units[0].attack_animation, UNIT_ATTACK_ANIMATION);
+    assert!(
+        game.effects
+            .iter()
+            .any(|effect| effect.kind == AttackEffectKind::MeleeImpact)
+    );
+    assert!(game.effects.iter().all(|effect| effect.kind != AttackEffectKind::Arrow));
+}
+
+#[test]
+fn regular_archers_create_visible_arrows_without_a_melee_lunge() {
+    let mut game: UnitesWar = UnitesWar::new();
+    game.start_battle();
+    game.units
+        .push(Unit::new(UnitKind::Archer, Faction::Player, Vec2::new(300.0, 400.0), 0));
+    game.units
+        .push(Unit::new(UnitKind::Guard, Faction::Enemy, Vec2::new(420.0, 400.0), 0));
+    game.units[0].attack_cooldown = 0.0;
+
+    game.update_units(0.0, 1280.0);
+
+    assert_eq!(game.units[0].attack_animation, 0.0);
+    assert!(game.effects.iter().any(|effect| effect.kind == AttackEffectKind::Arrow));
 }
 
 #[test]

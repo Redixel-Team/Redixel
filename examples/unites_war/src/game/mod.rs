@@ -9,6 +9,7 @@ use passives::*;
 
 const STAGE_01_BACKGROUND_PNG: &[u8] = include_bytes!("../../assets/stage_01/background.png");
 const STAGE_01_FORTRESS_PNG: &[u8] = include_bytes!("../../assets/stage_01/fortress.png");
+const SHADOW_ARCHER_PNG: &[u8] = include_bytes!("../../assets/stage_01/shadow_archer.png");
 
 const STARTING_COINS: f32 = 90.0;
 const PASSIVE_COIN_RATE: f32 = 4.0;
@@ -24,19 +25,54 @@ const SPELL_DAMAGE: f32 = 85.0;
 const TOOLBAR_HEIGHT: f32 = 104.0;
 const BUTTON_SIZE: f32 = 66.0;
 const BUTTON_GAP: f32 = 12.0;
+const HUD_BASE_WIDTH: f32 = 960.0;
+const HUD_BASE_HEIGHT: f32 = 540.0;
+const HUD_MAX_SCALE: f32 = 2.0;
 const MAX_UNITS: usize = 80;
 const PLAYER_RECRUIT_INTERVAL: f32 = 0.85;
 const MENU_BUTTON_WIDTH: f32 = 250.0;
-const MENU_BUTTON_HEIGHT: f32 = 58.0;
+const MENU_BUTTON_HEIGHT: f32 = 52.0;
+const MENU_BUTTON_GAP: f32 = 12.0;
 const STAGE_COUNT: usize = 6;
 const HERO_MAX_HEALTH: f32 = 115.0;
 const HERO_DAMAGE: f32 = 48.0;
 const HERO_TOWER_DAMAGE_MULTIPLIER: f32 = 1.8;
-const HERO_RANGE: f32 = 520.0;
+const HERO_RANGE: f32 = 155.0;
 const HERO_MOVE_SPEED: f32 = 112.0;
 const HERO_ATTACK_COOLDOWN: f32 = 0.92;
 const HERO_MAX_PIERCED_TARGETS: usize = 4;
 const HERO_SIZE: Vec2 = Vec2::new(31.0, 49.0);
+const HERO_SPRITE_SIZE: Vec2 = Vec2::splat(72.0);
+const UNIT_ATTACK_ANIMATION: f32 = 0.2;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Resolution {
+    width: u32,
+    height: u32,
+}
+
+const RESOLUTIONS: [Resolution; 5] = [
+    Resolution {
+        width: 960,
+        height: 540,
+    },
+    Resolution {
+        width: 1280,
+        height: 720,
+    },
+    Resolution {
+        width: 1366,
+        height: 768,
+    },
+    Resolution {
+        width: 1600,
+        height: 900,
+    },
+    Resolution {
+        width: 1920,
+        height: 1080,
+    },
+];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum Action {
@@ -166,6 +202,7 @@ struct Unit {
     health: f32,
     max_health: f32,
     attack_cooldown: f32,
+    attack_animation: f32,
     hit_flash: f32,
     momentum_stacks: u8,
     momentum_timer: f32,
@@ -183,6 +220,7 @@ impl Unit {
             health: max_health,
             max_health,
             attack_cooldown: 0.15,
+            attack_animation: 0.0,
             hit_flash: 0.0,
             momentum_stacks: 0,
             momentum_timer: 0.0,
@@ -251,8 +289,18 @@ enum BattleState {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ScreenState {
     Menu,
+    Settings,
     StageSelect,
     Battle,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AttackEffectKind {
+    Arrow,
+    MeleeImpact,
+    HeavyImpact,
+    CastleBolt,
+    Lightning,
 }
 
 struct AttackEffect {
@@ -261,7 +309,7 @@ struct AttackEffect {
     life: f32,
     max_life: f32,
     color: Color,
-    heavy: bool,
+    kind: AttackEffectKind,
 }
 
 #[derive(Clone, Copy)]
@@ -280,6 +328,7 @@ struct AttackIntent {
 struct GameTextures {
     stage_01_background: Option<TextureId>,
     stage_01_fortress: Option<TextureId>,
+    shadow_archer: Option<TextureId>,
 }
 
 pub(crate) struct UnitesWar {
@@ -301,6 +350,8 @@ pub(crate) struct UnitesWar {
     state: BattleState,
     rng: u32,
     textures: GameTextures,
+    selected_resolution: usize,
+    last_surface_width: Option<f32>,
 }
 
 impl UnitesWar {
@@ -324,13 +375,19 @@ impl UnitesWar {
             state: BattleState::Playing,
             rng: 0xC1A4_5EED,
             textures: GameTextures::default(),
+            selected_resolution: 1,
+            last_surface_width: None,
         }
     }
 
     fn reset(&mut self) {
         let textures: GameTextures = self.textures;
+        let selected_resolution: usize = self.selected_resolution;
+        let last_surface_width: Option<f32> = self.last_surface_width;
         *self = Self::new();
         self.textures = textures;
+        self.selected_resolution = selected_resolution;
+        self.last_surface_width = last_surface_width;
         self.screen = ScreenState::Battle;
     }
 
@@ -342,8 +399,48 @@ impl UnitesWar {
         self.screen = ScreenState::StageSelect;
     }
 
+    fn open_settings(&mut self) {
+        self.screen = ScreenState::Settings;
+    }
+
+    fn closest_resolution(width: u32, height: u32) -> usize {
+        RESOLUTIONS
+            .iter()
+            .enumerate()
+            .min_by_key(|(_, resolution)| {
+                resolution.width.abs_diff(width) as u64 + resolution.height.abs_diff(height) as u64
+            })
+            .map(|(index, _)| index)
+            .unwrap_or(0)
+    }
+
+    fn apply_resolution(&mut self, index: usize, ctx: &mut dyn GameContext<Action>) {
+        let Some(resolution) = RESOLUTIONS.get(index).copied() else {
+            return;
+        };
+        self.selected_resolution = index;
+        if ctx.is_fullscreen() {
+            ctx.request_fullscreen(false);
+        }
+        ctx.request_surface_size(resolution.width, resolution.height);
+    }
+
+    fn apply_window_mode(&self, fullscreen: bool, ctx: &mut dyn GameContext<Action>) {
+        ctx.request_fullscreen(fullscreen);
+        if !fullscreen && let Some(resolution) = RESOLUTIONS.get(self.selected_resolution) {
+            ctx.request_surface_size(resolution.width, resolution.height);
+        }
+    }
+
+    fn hud_scale(width: f32, height: f32) -> f32 {
+        (width / HUD_BASE_WIDTH)
+            .min(height / HUD_BASE_HEIGHT)
+            .clamp(1.0, HUD_MAX_SCALE)
+    }
+
     fn ground_y(height: f32) -> f32 {
-        (height - TOOLBAR_HEIGHT - 42.0).max(260.0)
+        let vertical_scale: f32 = (height / HUD_BASE_HEIGHT).clamp(1.0, HUD_MAX_SCALE);
+        (height - (TOOLBAR_HEIGHT + 42.0) * vertical_scale).max(260.0)
     }
 
     fn castle_x(faction: Faction, width: f32) -> f32 {
@@ -362,6 +459,32 @@ impl UnitesWar {
 
     fn unit_y(kind: UnitKind, height: f32) -> f32 {
         Self::ground_y(height) - kind.stats().size.y * 0.5
+    }
+
+    fn remap_battlefield_x(x: f32, old_width: f32, new_width: f32) -> f32 {
+        let old_left: f32 = Self::castle_x(Faction::Player, old_width);
+        let old_span: f32 = (Self::castle_x(Faction::Enemy, old_width) - old_left).max(1.0);
+        let progress: f32 = (x - old_left) / old_span;
+        let new_left: f32 = Self::castle_x(Faction::Player, new_width);
+        let new_span: f32 = (Self::castle_x(Faction::Enemy, new_width) - new_left).max(1.0);
+        new_left + progress * new_span
+    }
+
+    fn align_battlefield_to_surface(&mut self, width: f32, height: f32) {
+        if let Some(old_width) = self.last_surface_width
+            && (old_width - width).abs() > f32::EPSILON
+        {
+            for unit in &mut self.units {
+                unit.pos.x = Self::remap_battlefield_x(unit.pos.x, old_width, width);
+            }
+            self.hero.pos.x = Self::remap_battlefield_x(self.hero.pos.x, old_width, width);
+        }
+
+        for unit in &mut self.units {
+            unit.pos.y = Self::unit_y(unit.kind, height);
+        }
+        self.hero.pos.y = Self::ground_y(height) - HERO_SIZE.y * 0.5;
+        self.last_surface_width = Some(width);
     }
 
     fn next_random(&mut self) -> u32 {
@@ -479,7 +602,8 @@ impl UnitesWar {
             return false;
         }
 
-        if target.y >= height - TOOLBAR_HEIGHT || target.x < 0.0 || target.x > width {
+        let hud_top: f32 = Self::command_panel_rect(width, height).0.y;
+        if target.y >= hud_top || target.x < 0.0 || target.x > width {
             return false;
         }
 
@@ -505,24 +629,74 @@ impl UnitesWar {
                 life: 0.38,
                 max_life: 0.38,
                 color: Color::from_rgba8(235, 238, 109, 255),
-                heavy: true,
+                kind: AttackEffectKind::Lightning,
             });
         }
         true
     }
 
+    fn command_panel_rect(width: f32, height: f32) -> (Vec2, Vec2) {
+        let scale: f32 = Self::hud_scale(width, height);
+        let button_count: f32 = 5.0;
+        let panel_width: f32 = (button_count * BUTTON_SIZE + (button_count - 1.0) * BUTTON_GAP + 24.0) * scale;
+        (
+            Vec2::new(12.0 * scale, height - 96.0 * scale),
+            Vec2::new(panel_width, 88.0 * scale),
+        )
+    }
+
     fn button_rect(index: usize, width: f32, height: f32) -> (Vec2, Vec2) {
-        let count: f32 = 5.0;
-        let total: f32 = count * BUTTON_SIZE + (count - 1.0) * BUTTON_GAP;
-        let x: f32 = (width - total) * 0.5 + index as f32 * (BUTTON_SIZE + BUTTON_GAP);
-        let y: f32 = height - TOOLBAR_HEIGHT + (TOOLBAR_HEIGHT - BUTTON_SIZE) * 0.5;
-        (Vec2::new(x, y), Vec2::splat(BUTTON_SIZE))
+        let scale: f32 = Self::hud_scale(width, height);
+        let (panel_pos, _): (Vec2, Vec2) = Self::command_panel_rect(width, height);
+        let x: f32 = panel_pos.x + 12.0 * scale + index as f32 * (BUTTON_SIZE + BUTTON_GAP) * scale;
+        let y: f32 = panel_pos.y + 14.0 * scale;
+        (Vec2::new(x, y), Vec2::splat(BUTTON_SIZE * scale))
     }
 
     fn menu_button_rect(index: usize, width: f32, height: f32) -> (Vec2, Vec2) {
         let x: f32 = (width - MENU_BUTTON_WIDTH) * 0.5;
-        let y: f32 = height * 0.54 + index as f32 * (MENU_BUTTON_HEIGHT + 18.0);
+        let y: f32 = height * 0.47 + index as f32 * (MENU_BUTTON_HEIGHT + MENU_BUTTON_GAP);
         (Vec2::new(x, y), Vec2::new(MENU_BUTTON_WIDTH, MENU_BUTTON_HEIGHT))
+    }
+
+    fn settings_panel_rect(width: f32, height: f32) -> (Vec2, Vec2) {
+        let size: Vec2 = Vec2::new((width - 32.0).min(720.0), (height - 28.0).min(520.0));
+        (Vec2::new((width - size.x) * 0.5, (height - size.y) * 0.5), size)
+    }
+
+    fn resolution_button_rect(index: usize, width: f32, height: f32) -> (Vec2, Vec2) {
+        let (panel_pos, panel_size): (Vec2, Vec2) = Self::settings_panel_rect(width, height);
+        let columns: usize = 2;
+        let gap: f32 = 12.0;
+        let grid_pos: Vec2 = panel_pos + Vec2::new(28.0, 143.0);
+        let button_width: f32 = (panel_size.x - 56.0 - gap) / columns as f32;
+        let button_size: Vec2 = Vec2::new(button_width, 58.0);
+        let column: f32 = (index % columns) as f32;
+        let row: f32 = (index / columns) as f32;
+        (
+            grid_pos + Vec2::new(column * (button_size.x + gap), row * (button_size.y + gap)),
+            button_size,
+        )
+    }
+
+    fn window_mode_button_rect(index: usize, width: f32, height: f32) -> (Vec2, Vec2) {
+        let (panel_pos, panel_size): (Vec2, Vec2) = Self::settings_panel_rect(width, height);
+        let gap: f32 = 12.0;
+        let button_width: f32 = (panel_size.x - 56.0 - gap) * 0.5;
+        let button_size: Vec2 = Vec2::new(button_width, 45.0);
+        (
+            panel_pos + Vec2::new(28.0 + index as f32 * (button_width + gap), 373.0),
+            button_size,
+        )
+    }
+
+    fn settings_back_button_rect(width: f32, height: f32) -> (Vec2, Vec2) {
+        let (panel_pos, panel_size): (Vec2, Vec2) = Self::settings_panel_rect(width, height);
+        let size: Vec2 = Vec2::new(190.0_f32.min(panel_size.x - 56.0), 43.0);
+        (
+            Vec2::new(panel_pos.x + (panel_size.x - size.x) * 0.5, panel_pos.y + panel_size.y - 61.0),
+            size,
+        )
     }
 
     fn stage_select_panel_rect(width: f32, height: f32) -> (Vec2, Vec2) {
@@ -558,9 +732,10 @@ impl UnitesWar {
         )
     }
 
-    fn skills_button_rect(width: f32) -> (Vec2, Vec2) {
-        let size: Vec2 = Vec2::new(180.0, 39.0);
-        (Vec2::new((width - size.x) * 0.5, 16.0), size)
+    fn skills_button_rect(width: f32, height: f32) -> (Vec2, Vec2) {
+        let scale: f32 = Self::hud_scale(width, height);
+        let size: Vec2 = Vec2::new(138.0, 66.0) * scale;
+        (Vec2::new(width - size.x - 14.0 * scale, height - size.y - 14.0 * scale), size)
     }
 
     fn skills_panel_rect(width: f32, height: f32) -> (Vec2, Vec2) {
@@ -711,7 +886,7 @@ impl UnitesWar {
             life: 0.32,
             max_life: 0.32,
             color: arrow_color,
-            heavy: false,
+            kind: AttackEffectKind::Arrow,
         });
         self.hero.attack_cooldown = HERO_ATTACK_COOLDOWN;
         self.hero.aim_style = (self.hero.aim_style + 1) % 3;
@@ -758,6 +933,7 @@ impl UnitesWar {
         self.update_passive_states(dt);
         for unit in &mut self.units {
             unit.attack_cooldown = (unit.attack_cooldown - dt).max(0.0);
+            unit.attack_animation = (unit.attack_animation - dt).max(0.0);
             unit.hit_flash = (unit.hit_flash - dt).max(0.0);
         }
 
@@ -876,7 +1052,7 @@ impl UnitesWar {
                             life: 0.2,
                             max_life: 0.2,
                             color: Color::from_rgba8(135, 238, 199, 255),
-                            heavy: false,
+                            kind: AttackEffectKind::Arrow,
                         });
                     }
                     end
@@ -899,17 +1075,36 @@ impl UnitesWar {
                 }
             };
 
+            if kind != UnitKind::Archer {
+                self.units[intent.attacker].attack_animation = UNIT_ATTACK_ANIMATION;
+            }
+
+            let effect_kind: AttackEffectKind = match kind {
+                UnitKind::Archer => AttackEffectKind::Arrow,
+                UnitKind::Brute => AttackEffectKind::HeavyImpact,
+                UnitKind::Runner | UnitKind::Guard => AttackEffectKind::MeleeImpact,
+            };
+            let effect_life: f32 = match effect_kind {
+                AttackEffectKind::Arrow => 0.28,
+                AttackEffectKind::HeavyImpact => 0.22,
+                AttackEffectKind::MeleeImpact => 0.16,
+                AttackEffectKind::CastleBolt | AttackEffectKind::Lightning => unreachable!(),
+            };
+            let effect_color: Color = match kind {
+                UnitKind::Archer => Color::from_rgba8(247, 218, 122, 255),
+                _ => kind.color(faction).lerp(Color::WHITE, 0.48),
+            };
             self.effects.push(AttackEffect {
-                start: attacker_pos,
-                end,
-                life: if kind == UnitKind::Archer { 0.24 } else { 0.1 },
-                max_life: if kind == UnitKind::Archer { 0.24 } else { 0.1 },
-                color: if kind == UnitKind::Archer {
-                    Color::from_rgba8(247, 218, 122, 255)
+                start: if kind == UnitKind::Archer {
+                    attacker_pos + Vec2::new(faction.direction() * 10.0, -7.0)
                 } else {
-                    Color::WHITE
+                    attacker_pos
                 },
-                heavy: kind == UnitKind::Brute,
+                end,
+                life: effect_life,
+                max_life: effect_life,
+                color: effect_color,
+                kind: effect_kind,
             });
         }
     }
@@ -993,7 +1188,7 @@ impl UnitesWar {
                 life: 0.28,
                 max_life: 0.28,
                 color: Color::from_rgba8(255, 226, 123, 255),
-                heavy: false,
+                kind: AttackEffectKind::CastleBolt,
             });
         }
     }
@@ -1038,9 +1233,12 @@ impl Game for UnitesWar {
     type Action = Action;
 
     fn on_start(&mut self, ctx: &mut dyn GameContext<Self::Action>) {
+        self.selected_resolution = Self::closest_resolution(ctx.surface_width(), ctx.surface_height());
+        self.last_surface_width = Some(ctx.surface_width() as f32);
         self.textures = GameTextures {
             stage_01_background: Some(ctx.load_texture(STAGE_01_BACKGROUND_PNG)),
             stage_01_fortress: Some(ctx.load_texture(STAGE_01_FORTRESS_PNG)),
+            shadow_archer: Some(ctx.load_texture(SHADOW_ARCHER_PNG)),
         };
 
         ctx.input_mut().bind(Action::RecruitRunner, KeyCode::Digit1.into());
@@ -1067,6 +1265,12 @@ impl Game for UnitesWar {
         let height: f32 = ctx.surface_height() as f32;
         let dt: f32 = (ctx.delta_time() as f32).min(0.05);
 
+        if self.screen == ScreenState::Battle {
+            self.align_battlefield_to_surface(width, height);
+        } else {
+            self.last_surface_width = Some(width);
+        }
+
         if self.screen == ScreenState::Menu {
             if ctx.input().just_pressed(Action::Exit) {
                 ctx.exit();
@@ -1080,11 +1284,46 @@ impl Game for UnitesWar {
                 && let Some(mouse) = ctx.input().mouse_position()
             {
                 let (play_pos, play_size): (Vec2, Vec2) = Self::menu_button_rect(0, width, height);
-                let (exit_pos, exit_size): (Vec2, Vec2) = Self::menu_button_rect(1, width, height);
+                let (settings_pos, settings_size): (Vec2, Vec2) = Self::menu_button_rect(1, width, height);
+                let (exit_pos, exit_size): (Vec2, Vec2) = Self::menu_button_rect(2, width, height);
                 if Self::point_in_rect(mouse, play_pos, play_size) {
                     self.open_stage_select();
+                } else if Self::point_in_rect(mouse, settings_pos, settings_size) {
+                    self.open_settings();
                 } else if Self::point_in_rect(mouse, exit_pos, exit_size) {
                     ctx.exit();
+                }
+            }
+            return;
+        }
+
+        if self.screen == ScreenState::Settings {
+            if ctx.input().just_pressed(Action::Exit) {
+                self.screen = ScreenState::Menu;
+                return;
+            }
+            if ctx.input().just_pressed(Action::Click)
+                && let Some(mouse) = ctx.input().mouse_position()
+            {
+                for (index, fullscreen) in [false, true].into_iter().enumerate() {
+                    let (button_pos, button_size): (Vec2, Vec2) = Self::window_mode_button_rect(index, width, height);
+                    if Self::point_in_rect(mouse, button_pos, button_size) {
+                        self.apply_window_mode(fullscreen, ctx);
+                        return;
+                    }
+                }
+
+                for index in 0..RESOLUTIONS.len() {
+                    let (button_pos, button_size): (Vec2, Vec2) = Self::resolution_button_rect(index, width, height);
+                    if Self::point_in_rect(mouse, button_pos, button_size) {
+                        self.apply_resolution(index, ctx);
+                        return;
+                    }
+                }
+
+                let (back_pos, back_size): (Vec2, Vec2) = Self::settings_back_button_rect(width, height);
+                if Self::point_in_rect(mouse, back_pos, back_size) {
+                    self.screen = ScreenState::Menu;
                 }
             }
             return;
@@ -1189,7 +1428,7 @@ impl Game for UnitesWar {
             if ctx.input().just_pressed(Action::Click)
                 && let Some(mouse) = ctx.input().mouse_position()
             {
-                let (skills_pos, skills_size): (Vec2, Vec2) = Self::skills_button_rect(width);
+                let (skills_pos, skills_size): (Vec2, Vec2) = Self::skills_button_rect(width, height);
                 if Self::point_in_rect(mouse, skills_pos, skills_size) {
                     self.toggle_skills_panel();
                     return;
@@ -1212,6 +1451,10 @@ impl Game for UnitesWar {
         let height: f32 = ctx.surface_height() as f32;
         if self.screen == ScreenState::Menu {
             self.draw_menu(ctx, width, height);
+            return;
+        }
+        if self.screen == ScreenState::Settings {
+            self.draw_settings(ctx, width, height);
             return;
         }
         if self.screen == ScreenState::StageSelect {

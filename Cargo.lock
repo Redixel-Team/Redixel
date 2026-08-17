@@ -2784,6 +2784,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4ac048d71ede7ee76d585517add45da530660ef4390e49b098733c6e897f254"
 
 [[package]]
+name = "unites_war"
+version = "0.5.0"
+dependencies = [
+ "android_logger",
+ "console_error_panic_hook",
+ "console_log",
+ "env_logger",
+ "log",
+ "redixel",
+ "wasm-bindgen",
+ "winit",
+]
+
+[[package]]
 name = "untrusted"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

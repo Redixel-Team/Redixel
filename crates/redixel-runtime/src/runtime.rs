@@ -249,6 +249,7 @@ impl<G: Game> Runtime<G> {
         let initial_size: PhysicalSize<u32> = window.surface_size();
         let mut context: Context<G::Action> = Context::with_network(self.config.build_network());
         context.update_state(initial_size.width, initial_size.height);
+        context.update_fullscreen(window.is_fullscreen());
 
         let game: G = self.pending_game.take().expect("pending_game already consumed");
         let mut sim: SimulationCore<G> = SimulationCore::new(time, context, game);
@@ -436,6 +437,17 @@ impl<G: Game> Runtime<G> {
                 event_loop.exit();
                 return;
             }
+        }
+
+        if let Some(fullscreen) = state.sim.context.take_fullscreen_request() {
+            state.window.set_fullscreen(fullscreen);
+        }
+
+        if let Some((width, height)) = state.sim.context.take_surface_size_request()
+            && let Some(size) = state.window.request_surface_size(width, height)
+        {
+            state.renderer.resize(size);
+            state.sim.context.update_state(size.width, size.height);
         }
 
         state.sim.context.reset_frame();
@@ -640,6 +652,45 @@ mod tests {
         ctx.update_timing(0.016, 62.5);
         assert!((ctx.delta_time() - 0.016).abs() < 1e-9);
         assert!((ctx.fps() - 62.5).abs() < 1e-9);
+    }
+
+    #[test]
+    fn surface_size_request_keeps_the_latest_valid_size_and_drains_once() {
+        let mut ctx: Context<()> = Context::new();
+
+        ctx.request_surface_size(960, 540);
+        ctx.request_surface_size(0, 720);
+        ctx.request_surface_size(1920, 1080);
+
+        assert_eq!(ctx.take_surface_size_request(), Some((1920, 1080)));
+        assert_eq!(ctx.take_surface_size_request(), None);
+    }
+
+    #[test]
+    fn reset_frame_discards_an_unhandled_surface_size_request() {
+        let mut ctx: Context<()> = Context::new();
+        ctx.request_surface_size(1280, 720);
+
+        ctx.reset_frame();
+
+        assert_eq!(ctx.take_surface_size_request(), None);
+    }
+
+    #[test]
+    fn fullscreen_request_updates_state_and_drains_once() {
+        let mut ctx: Context<()> = Context::new();
+        assert!(!ctx.is_fullscreen());
+
+        ctx.request_fullscreen(true);
+
+        assert!(ctx.is_fullscreen());
+        assert_eq!(ctx.take_fullscreen_request(), Some(true));
+        assert_eq!(ctx.take_fullscreen_request(), None);
+
+        ctx.request_fullscreen(false);
+        assert!(!ctx.is_fullscreen());
+        ctx.reset_frame();
+        assert_eq!(ctx.take_fullscreen_request(), None);
     }
 
     #[test]

@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/*", "tools/builder", "tools/fps-bench"]
+members = ["crates/*", "examples/unites_war", "tools/builder", "tools/fps-bench"]
 resolver = "2"
 
 [workspace.package]

@@ -10,6 +10,7 @@ use winit::{
     dpi::PhysicalSize,
     event::WindowEvent,
     event_loop::ActiveEventLoop,
+    monitor::Fullscreen,
     window::{Window, WindowAttributes},
 };
 
@@ -52,6 +53,24 @@ impl WindowManager {
 
     pub fn request_redraw(&self) {
         self.window.request_redraw();
+    }
+
+    /// Requests a physical surface size. Some display systems apply it
+    /// asynchronously and report the result in a later resize event.
+    pub fn request_surface_size(&self, width: u32, height: u32) -> Option<PhysicalSize<u32>> {
+        self.window
+            .request_surface_size(PhysicalSize::new(width, height).into())
+    }
+
+    /// Switches between a decorated window and borderless fullscreen on the
+    /// monitor that currently contains the window.
+    pub fn set_fullscreen(&self, fullscreen: bool) {
+        self.window
+            .set_fullscreen(fullscreen.then_some(Fullscreen::Borderless(None)));
+    }
+
+    pub fn is_fullscreen(&self) -> bool {
+        self.window.fullscreen().is_some()
     }
 
     /// Updates the title bar with the current FPS, and the network RTT in

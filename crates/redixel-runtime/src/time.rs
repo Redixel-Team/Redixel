@@ -326,7 +326,12 @@ mod tests {
         tm.set_max_substeps(8);
         tm.accumulate(5.0);
 
-        assert!(tm.accumulator < 5.0, "accumulator should be clamped, got {}", tm.accumulator);
+        let ceiling: f64 = 8.0 / 60.0;
+        assert!(
+            (tm.accumulator - ceiling).abs() < EPS,
+            "accumulator should be clamped to {ceiling}, got {}",
+            tm.accumulator
+        );
         assert!((tm.elapsed_time() - 5.0).abs() < EPS, "elapsed={}", tm.elapsed_time());
     }
 

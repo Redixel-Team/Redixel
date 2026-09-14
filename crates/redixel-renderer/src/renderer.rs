@@ -174,9 +174,13 @@ impl Renderer {
     /// `time` is seconds since startup, narrowed to `f32` only here — WGSL
     /// uniforms have no `f64`. Its resolution decays to about a millisecond
     /// after a couple of hours of uptime; an effect needing better than that
-    /// wants the time reduced modulo a multiple of `TAU` before this call, not
-    /// a wider type.
-    pub fn update_uniforms(&self, time: f32) {
+    /// wants the time reduced modulo a multiple of `TAU` by whoever calls
+    /// [`render`](Self::render), not a wider type.
+    ///
+    /// Private because [`render`](Self::render) always calls it with that
+    /// frame's time: an upload from anywhere else would be overwritten before
+    /// it could reach a draw call.
+    fn update_uniforms(&self, time: f32) {
         let (w, h): (u32, u32) = self.surface_size();
         let resolution: [f32; 2] = [w as f32, h as f32];
 

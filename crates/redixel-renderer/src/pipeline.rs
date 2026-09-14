@@ -130,8 +130,11 @@ impl ShapePipeline {
     /// samples the sprite texture and nothing else.
     ///
     /// The layout pins `min_binding_size` to the size of [`GlobalUniforms`],
-    /// turning a drift between the Rust struct and its WGSL counterpart into a
-    /// validation error here rather than garbage read by the shader.
+    /// which fails pipeline creation if the WGSL struct outgrows the Rust one.
+    /// It is a floor, not an equality check: wgpu only rejects a binding
+    /// smaller than the shader needs, so a Rust struct that grows or reorders
+    /// its fields still binds cleanly and the shader reads the wrong offsets.
+    /// Any edit here belongs in `shape.wgsl` in the same commit.
     pub fn new(device: &Device, surface_format: TextureFormat, texture_layout: &BindGroupLayout) -> Self {
         let shader: ShaderModule = device.create_shader_module(ShaderModuleDescriptor {
             label: Some("REDIXEL_SHAPE_SHADER"),

@@ -15,10 +15,12 @@
 // so the multiply below is the seam a real camera slots into, not an accident.
 //
 // Field order mirrors the Rust `GlobalUniforms`; the two layouts have to agree
-// byte for byte. `_padding` closes the struct at 144 bytes, a multiple of the
-// 16-byte alignment `mat4x4<f32>` imposes on the whole struct — WGSL would pad
-// to that boundary implicitly, but leaving it implicit is what lets the Rust
-// and WGSL layouts silently drift apart.
+// byte for byte, and only half of that is machine-checked — `min_binding_size`
+// catches this struct outgrowing the Rust one, never the reverse — so edit both
+// declarations in the same commit. `_padding` closes the struct at 144 bytes, a
+// multiple of the 16-byte alignment `mat4x4<f32>` imposes on the whole struct:
+// WGSL would pad to that boundary implicitly, but leaving it implicit is what
+// lets the two layouts drift apart unnoticed.
 struct GlobalUniforms {
     view: mat4x4<f32>,
     projection: mat4x4<f32>,

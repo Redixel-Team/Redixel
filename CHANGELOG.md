@@ -9,15 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- **Renderer:** `GlobalUniforms`, the uniform block at `@group(0) @binding(0)` — `view` and `projection` matrices plus the frame globals `resolution`, `time`, and `glow`. Replaces `CameraUniform`, which carried only a projection matrix. Laid out field-for-field against the WGSL struct (144 bytes, no implicit padding), with `min_binding_size` pinned so any drift between the two declarations fails at pipeline creation instead of reading garbage.
+- **Renderer:** `GlobalUniforms`, the uniform block at `@group(0) @binding(0)` — `view` and `projection` matrices plus the frame globals `resolution` and `time`. Replaces `CameraUniform`, which carried only a projection matrix. Laid out field-for-field against the WGSL struct (144 bytes via an explicit trailing `_padding` field, since a struct holding a `mat4x4` rounds up to a 16-byte multiple), with `min_binding_size` pinned so any drift between the two declarations fails at pipeline creation instead of reading garbage.
 - **Renderer:** `Renderer::update_uniforms(time)` writes both uniform blocks, driven from inside `render` so no frame can present against a stale surface size.
 - **Runtime:** `TimeManager::elapsed_time` and `GameContext::elapsed_time` — seconds of real time since startup, previously unavailable in any form. Accumulated once per frame in `accumulate` (covering the windowed and headless runtimes alike); the spiral-of-death clamp never discards it.
-- **Renderer + Core:** `set_glow(amount)` — a time-driven brightness modulation the shader applies to the 3D batch, `0.0` (the default) disabling it, so existing games render exactly as before. Each fragment's phase derives smoothly from its position: moving geometry shimmers instead of strobing, waves roll across large surfaces, and separate objects pulse out of step at no per-object cost. The 2D batch always renders with it off.
 
 ### Changed
 
 - **Renderer:** `Renderer::render` takes the elapsed time in seconds, narrowed to `f32` only at the GPU boundary.
-- **Renderer:** the group 0 bind group layout is visible to both shader stages (`VERTEX_FRAGMENT`, previously `VERTEX`), since the fragment stage now reads the frame globals.
 - **Renderer:** `CameraUniform`/`Camera` replaced by `GlobalUniforms`/`UniformBlock` (`camera_2d`/`camera_3d` → `globals_2d`/`globals_3d`) — the block is no longer only a camera. Breaking for direct `redixel-renderer` consumers.
 - **Renderer:** the vertex shader transforms by `projection * view`; `view` is the identity today, so output is unchanged — the multiply is the seam a camera system (planned) slots into.
 

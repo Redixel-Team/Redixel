@@ -12,7 +12,6 @@ use redixel_platform::InputManager;
 #[non_exhaustive]
 pub enum DrawCommand {
     ClearColor(Color),
-    Glow(f32),
     Rect {
         position: Vec2,
         size: Vec2,
@@ -275,12 +274,6 @@ impl<A: InputAction> GameContext<A> for Context<A> {
         self.commands
             .retain(|c: &DrawCommand| !matches!(c, DrawCommand::ClearColor(..)));
         self.commands.push(DrawCommand::ClearColor(color));
-    }
-
-    fn set_glow(&mut self, amount: f32) {
-        self.commands
-            .retain(|c: &DrawCommand| !matches!(c, DrawCommand::Glow(..)));
-        self.commands.push(DrawCommand::Glow(amount));
     }
 
     fn draw_triangle(&mut self, p1: Vec2, p2: Vec2, p3: Vec2, color: Color) {

@@ -46,7 +46,6 @@ impl Default for RendererConfig {
 /// Commands collected during `on_render`, submitted to the GPU in one pass.
 pub struct DrawQueue {
     pub clear: Color,
-    pub glow: f32,
     pub batch_2d: SpriteBatch,
     pub batch_3d: MeshBatch,
 }
@@ -82,7 +81,6 @@ impl Renderer {
             textures,
             queue: DrawQueue {
                 clear: Color::rgb(0.1, 0.2, 0.3),
-                glow: 0.0,
                 batch_2d,
                 batch_3d,
             },
@@ -136,13 +134,6 @@ impl Renderer {
         self.queue.clear = color;
     }
 
-    /// Sets the strength of the shader's time-driven brightness modulation for
-    /// the next frame's 3D batch. `0.0` — the default — disables it entirely;
-    /// the 2D batch always renders with it disabled.
-    pub fn set_glow(&mut self, amount: f32) {
-        self.queue.glow = amount;
-    }
-
     /// Queues a filled rectangle.
     pub fn draw_rect(&mut self, position: Vec2, size: Vec2, color: Color) {
         self.queue.batch_2d.draw_rect(position, size, color);
@@ -180,10 +171,6 @@ impl Renderer {
     /// `view` is the identity in both blocks: the engine has no camera
     /// transform yet, and 3D draw calls arrive already in view space.
     ///
-    /// `glow` reaches only the 3D block — it modulates scene brightness, and 2D
-    /// content (HUDs, overlays) is exactly what should not throb with the
-    /// scene — so the 2D block always carries `0.0`, the identity.
-    ///
     /// `time` is seconds since startup, narrowed to `f32` only here — WGSL
     /// uniforms have no `f64`. Its resolution decays to about a millisecond
     /// after a couple of hours of uptime; an effect needing better than that
@@ -199,7 +186,7 @@ impl Renderer {
             projection: ortho.cols,
             resolution,
             time,
-            glow: 0.0,
+            _padding: 0.0,
         };
         self.pipeline.globals_2d.update(&self.device.queue, &uniforms_2d);
 
@@ -210,7 +197,7 @@ impl Renderer {
             projection: perspective.cols,
             resolution,
             time,
-            glow: self.queue.glow,
+            _padding: 0.0,
         };
         self.pipeline.globals_3d.update(&self.device.queue, &uniforms_3d);
     }

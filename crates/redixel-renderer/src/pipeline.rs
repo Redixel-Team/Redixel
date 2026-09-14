@@ -47,19 +47,17 @@ impl Vertex {
     }
 }
 
-/// Everything the shader reads from `group(0) binding(0)`: the two column-major
-/// 4×4 camera matrices plus the per-frame globals every stage may sample.
+/// Everything the vertex shader reads from `group(0) binding(0)`: the two
+/// column-major 4×4 camera matrices, plus the per-frame globals `resolution`
+/// and `time` a future effect may need without a layout change.
 ///
 /// The field order is the memory layout WGSL expects, so it is not free to
 /// change: matrices align to 16 bytes and sit first, `resolution` is a
 /// `vec2<f32>` (8-byte aligned, unlike a `vec3` which would align to 16 and need
-/// padding of its own), and the two trailing scalars close the struct at 144
-/// bytes — a multiple of the 16-byte struct alignment, leaving no implicit
-/// padding for `bytemuck::Pod` to reject.
-///
-/// `glow` is the strength of the shader's time-driven brightness modulation,
-/// `0.0` disabling it outright, which is what every frame that never asks for
-/// it uploads.
+/// padding of its own), and `time` plus `_padding` close the struct at 144
+/// bytes — a multiple of the 16-byte struct alignment WGSL imposes on a struct
+/// containing a `mat4x4`. Leaving that padding implicit is what lets the Rust
+/// and WGSL layouts silently drift apart, so it is spelled out here instead.
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct GlobalUniforms {
@@ -67,7 +65,7 @@ pub struct GlobalUniforms {
     pub projection: [[f32; 4]; 4],
     pub resolution: [f32; 2],
     pub time: f32,
-    pub glow: f32,
+    pub _padding: f32,
 }
 
 /// A uniform buffer paired with the bind group that exposes it.
@@ -127,14 +125,13 @@ pub struct ShapePipeline {
 }
 
 impl ShapePipeline {
-    /// Group 0 is visible to both stages: the vertex stage needs the matrices,
-    /// and the fragment stage reads the frame globals, which a `VERTEX`-only
-    /// layout would reject at pipeline creation.
+    /// Group 0 is visible only to the vertex stage, the only one that reads
+    /// `globals` — it transforms by `projection * view`; the fragment stage
+    /// samples the sprite texture and nothing else.
     ///
-    /// That layout also pins `min_binding_size` to the size of
-    /// [`GlobalUniforms`], turning a drift between the Rust struct and its WGSL
-    /// counterpart into a validation error here rather than garbage read by the
-    /// shader.
+    /// The layout pins `min_binding_size` to the size of [`GlobalUniforms`],
+    /// turning a drift between the Rust struct and its WGSL counterpart into a
+    /// validation error here rather than garbage read by the shader.
     pub fn new(device: &Device, surface_format: TextureFormat, texture_layout: &BindGroupLayout) -> Self {
         let shader: ShaderModule = device.create_shader_module(ShaderModuleDescriptor {
             label: Some("REDIXEL_SHAPE_SHADER"),
@@ -145,7 +142,7 @@ impl ShapePipeline {
             label: Some("REDIXEL_GLOBALS_BIND_GROUP_LAYOUT"),
             entries: &[BindGroupLayoutEntry {
                 binding: 0,
-                visibility: ShaderStages::VERTEX_FRAGMENT,
+                visibility: ShaderStages::VERTEX,
                 ty: BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
                     has_dynamic_offset: false,

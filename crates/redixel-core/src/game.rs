@@ -177,17 +177,6 @@ pub trait GameContext<A: InputAction> {
     /// Sets the background clear colour for this frame.
     fn clear_color(&mut self, color: Color);
 
-    /// Sets the strength of the time-driven brightness pulse applied to this
-    /// frame's 3D geometry, `0.0` (the default) disabling it entirely.
-    ///
-    /// The pulse runs on the GPU from the engine's elapsed-time uniform — no
-    /// CPU code animates it — and each fragment derives its phase smoothly
-    /// from its position, so waves of brightness roll across large surfaces
-    /// while separate objects pulse out of step with each other, at no
-    /// per-object cost. `amount` blends between untouched (`0.0`) and fully
-    /// pulsed (`1.0`) brightness. 2D geometry is never affected.
-    fn set_glow(&mut self, amount: f32);
-
     /// Draws a filled triangle.
     ///
     /// - `p1`, `p2`, `p3` — The three vertices of the triangle in world coordinates

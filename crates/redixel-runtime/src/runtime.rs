@@ -397,9 +397,6 @@ impl<G: Game> Runtime<G> {
                 DrawCommand::ClearColor(c) => {
                     state.renderer.set_clear_color(c);
                 }
-                DrawCommand::Glow(amount) => {
-                    state.renderer.set_glow(amount);
-                }
                 DrawCommand::Rect { position, size, color } => {
                     state.renderer.draw_rect(position, size, color);
                 }
@@ -625,23 +622,6 @@ mod tests {
             .collect();
 
         assert_eq!(clears.len(), 1);
-    }
-
-    #[test]
-    fn context_glow_deduplicates() {
-        let mut ctx: Context<()> = Context::new();
-
-        ctx.set_glow(0.3);
-        ctx.set_glow(0.8);
-
-        let glows: Vec<&DrawCommand> = ctx
-            .commands
-            .iter()
-            .filter(|c: &&DrawCommand| matches!(c, DrawCommand::Glow(..)))
-            .collect();
-
-        assert_eq!(glows.len(), 1);
-        assert!(matches!(glows[0], DrawCommand::Glow(amount) if *amount == 0.8));
     }
 
     #[test]

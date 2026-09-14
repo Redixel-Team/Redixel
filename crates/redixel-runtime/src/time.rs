@@ -157,9 +157,9 @@ impl TimeManager {
     /// [`accumulate`](Self::accumulate).
     ///
     /// Unlike [`fixed_tick`](Self::fixed_tick) it advances continuously rather
-    /// than in discrete steps, which is what a shader animation or any
-    /// wall-clock-driven visual needs; unlike [`delta_time`](Self::delta_time)
-    /// it is absolute rather than per-frame.
+    /// than in discrete steps, which is what any wall-clock-driven visual
+    /// needs; unlike [`delta_time`](Self::delta_time) it is absolute rather
+    /// than per-frame.
     pub fn elapsed_time(&self) -> f64 {
         self.elapsed
     }

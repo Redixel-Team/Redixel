@@ -94,8 +94,8 @@ pub trait GameContext<A: InputAction> {
     /// Seconds of real time since startup.
     ///
     /// The same clock the renderer hands the shader as `globals.time`, so a
-    /// value driven from it on the CPU stays in phase with anything the shader
-    /// animates from it.
+    /// value driven from it on the CPU stays in phase with anything a shader
+    /// effect animates from that uniform.
     fn elapsed_time(&self) -> f64;
 
     /// The constant timestep of the fixed-update loop, in seconds (e.g. `1/60`).

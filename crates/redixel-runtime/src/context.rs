@@ -36,10 +36,6 @@ pub enum DrawCommand {
         p3: Vec3,
         color: Color,
     },
-    Triangle3dShaded {
-        points: [Vec3; 3],
-        colors: [Color; 3],
-    },
     Triangle3dTextured {
         points: [Vec3; 3],
         uvs: [Vec2; 3],
@@ -310,10 +306,6 @@ impl<A: InputAction> GameContext<A> for Context<A> {
 
     fn draw_triangle_3d(&mut self, p1: Vec3, p2: Vec3, p3: Vec3, color: Color) {
         self.commands.push(DrawCommand::Triangle3d { p1, p2, p3, color });
-    }
-
-    fn draw_triangle_3d_shaded(&mut self, points: [Vec3; 3], colors: [Color; 3]) {
-        self.commands.push(DrawCommand::Triangle3dShaded { points, colors });
     }
 
     fn draw_triangle_3d_textured(&mut self, points: [Vec3; 3], uvs: [Vec2; 3], texture: TextureId) {

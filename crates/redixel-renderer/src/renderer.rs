@@ -163,12 +163,6 @@ impl Renderer {
         self.queue.batch_3d.draw_triangle_3d(p1, p2, p3, color);
     }
 
-    /// Queues a triangle in 3D view space with an independent colour per
-    /// vertex, interpolated across the face.
-    pub fn draw_triangle_3d_shaded(&mut self, points: [Vec3; 3], colors: [Color; 3]) {
-        self.queue.batch_3d.draw_triangle_3d_shaded(points, colors);
-    }
-
     /// Queues a textured triangle in 3D view space.
     pub fn draw_triangle_3d_textured(&mut self, points: [Vec3; 3], uvs: [Vec2; 3], texture: TextureId, tint: Color) {
         self.queue

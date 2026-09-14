@@ -227,18 +227,6 @@ pub trait GameContext<A: InputAction> {
     /// - `color`          — fill colour
     fn draw_triangle_3d(&mut self, p1: Vec3, p2: Vec3, p3: Vec3, color: Color);
 
-    /// Draws a triangle in 3D view space with an independent colour per
-    /// vertex, interpolated across the face by the rasteriser.
-    ///
-    /// The building block for smooth (Gouraud) shading — light each vertex of
-    /// a mesh instead of each face and the facets disappear — and for soft
-    /// gradients: a corner whose colour carries zero alpha fades the face out
-    /// towards it.
-    ///
-    /// - `points` — the three vertices, in the perspective camera's view space
-    /// - `colors` — the colour at each vertex, in the same order
-    fn draw_triangle_3d_shaded(&mut self, points: [Vec3; 3], colors: [Color; 3]);
-
     /// Draws a textured triangle in 3D view space.
     ///
     /// - `points`  — the three vertices, in the perspective camera's view space

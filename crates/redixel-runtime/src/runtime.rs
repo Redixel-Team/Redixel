@@ -417,9 +417,6 @@ impl<G: Game> Runtime<G> {
                 DrawCommand::Triangle3d { p1, p2, p3, color } => {
                     state.renderer.draw_triangle_3d(p1, p2, p3, color);
                 }
-                DrawCommand::Triangle3dShaded { points, colors } => {
-                    state.renderer.draw_triangle_3d_shaded(points, colors);
-                }
                 DrawCommand::Triangle3dTextured {
                     points,
                     uvs,

@@ -13,8 +13,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Renderer:** `Renderer::update_uniforms(time)` writes both uniform blocks, driven from inside `render` so no frame can present against a stale surface size.
 - **Runtime:** `TimeManager::elapsed_time` and `GameContext::elapsed_time` — seconds of real time since startup, previously unavailable in any form. Accumulated once per frame in `accumulate` (covering the windowed and headless runtimes alike); the spiral-of-death clamp never discards it.
 - **Renderer + Core:** `set_glow(amount)` — a time-driven brightness modulation the shader applies to the 3D batch, `0.0` (the default) disabling it, so existing games render exactly as before. Each fragment's phase derives smoothly from its position: moving geometry shimmers instead of strobing, waves roll across large surfaces, and separate objects pulse out of step at no per-object cost. The 2D batch always renders with it off.
-- **Renderer + Core:** `draw_triangle_3d_shaded(points, colors)` — a 3D triangle with an independent colour per vertex, interpolated across the face. The batch's `Vertex` always stored a colour per vertex; this exposes it, enabling Gouraud shading and soft alpha gradients.
-- **Examples:** `solar_system` — a limb-darkened sun in layered halos, three Gouraud-shaded planets on tilted orbits (one with a moon, one with a soft-edged double ring), an asteroid belt, feathered orbit lines, and a twinkling star field over nebula clouds. Positions and lighting are CPU work driven by `elapsed_time`; every brightness flicker runs on the GPU from the `time` uniform via `set_glow`.
 
 ### Changed
 

@@ -1434,7 +1434,7 @@ dependencies = [
 
 [[package]]
 name = "redixel"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "android_logger",
  "console_error_panic_hook",
@@ -1452,7 +1452,7 @@ dependencies = [
 
 [[package]]
 name = "redixel-core"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "log",
  "redixel-math",
@@ -1465,14 +1465,14 @@ dependencies = [
 
 [[package]]
 name = "redixel-math"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "wgpu",
 ]
 
 [[package]]
 name = "redixel-platform"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "log",
  "redixel-core",
@@ -1484,7 +1484,7 @@ dependencies = [
 
 [[package]]
 name = "redixel-renderer"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "bytemuck",
  "image",
@@ -1500,7 +1500,7 @@ dependencies = [
 
 [[package]]
 name = "redixel-runtime"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "log",
  "pollster",

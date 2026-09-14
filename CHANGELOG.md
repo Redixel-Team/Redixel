@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),  
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.6.0]
+
+### Added
+
+- **Renderer:** `GlobalUniforms`, the uniform block at `@group(0) @binding(0)` — `view` and `projection` matrices plus the frame globals `resolution` and `time`. Replaces `CameraUniform`, which carried only a projection matrix. Laid out field-for-field against the WGSL struct (144 bytes via an explicit trailing `_padding` field, since a struct holding a `mat4x4` rounds up to a 16-byte multiple), with `min_binding_size` pinned so a WGSL struct that outgrows the Rust one fails at pipeline creation. That check is a floor, not an equality: growing or reordering the Rust struct alone still binds cleanly and misreads offsets, so both declarations have to be edited together.
+- **Renderer:** both uniform blocks are rebuilt and uploaded from inside `render`, so no frame can present against a stale surface size.
+- **Runtime:** `TimeManager::elapsed_time` and `GameContext::elapsed_time` — seconds of real time since startup, previously unavailable in any form. Accumulated once per frame in `accumulate` (covering the windowed and headless runtimes alike); the spiral-of-death clamp never discards it.
+
+### Changed
+
+- **Renderer:** `Renderer::render` takes the elapsed time in seconds, narrowed to `f32` only at the GPU boundary.
+- **Core:** `GameContext` gains `elapsed_time` as a required method with no default body. Breaking for any out-of-tree implementor of the trait.
+- **Renderer:** `CameraUniform`/`Camera` replaced by `GlobalUniforms`/`UniformBlock` (`camera_2d`/`camera_3d` → `globals_2d`/`globals_3d`) — the block is no longer only a camera. Breaking for direct `redixel-renderer` consumers.
+- **Renderer:** the vertex shader transforms by `projection * view`; `view` is the identity today, so output is unchanged — the multiply is the seam a camera system (planned) slots into.
+
 ## [0.5.0]
 
 ### Added

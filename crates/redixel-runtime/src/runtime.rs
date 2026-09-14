@@ -425,7 +425,7 @@ impl<G: Game> Runtime<G> {
             }
         }
 
-        match state.renderer.render() {
+        match state.renderer.render(state.sim.time.elapsed_time() as f32) {
             Ok(()) => {}
             Err(RedixelError::SurfaceIgnored) => {}
             Err(RedixelError::SurfaceNeedsReconfiguration) => {

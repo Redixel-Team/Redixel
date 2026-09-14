@@ -91,6 +91,13 @@ pub trait GameContext<A: InputAction> {
     /// `on_fixed_update`, prefer [`fixed_delta`](Self::fixed_delta).
     fn delta_time(&self) -> f64;
 
+    /// Seconds of real time since startup.
+    ///
+    /// The same clock the renderer hands the shader as `globals.time`, so a
+    /// value driven from it on the CPU stays in phase with anything a shader
+    /// effect animates from that uniform.
+    fn elapsed_time(&self) -> f64;
+
     /// The constant timestep of the fixed-update loop, in seconds (e.g. `1/60`).
     ///
     /// This is the dt to integrate with inside `on_fixed_update` for

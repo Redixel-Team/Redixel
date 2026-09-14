@@ -65,6 +65,7 @@ pub struct Context<A: InputAction> {
     should_exit: bool,
     error: Option<RedixelError>,
     delta_time: f64,
+    elapsed_time: f64,
     fps: f64,
     fixed_delta: f64,
     fixed_tick: u64,
@@ -90,6 +91,7 @@ impl<A: InputAction> Context<A> {
             should_exit: false,
             error: None,
             delta_time: 0.0,
+            elapsed_time: 0.0,
             fps: 0.0,
             fixed_delta: 0.0,
             fixed_tick: 0,
@@ -127,6 +129,12 @@ impl<A: InputAction> Context<A> {
     pub(crate) fn update_timing(&mut self, delta_time: f64, fps: f64) {
         self.delta_time = delta_time;
         self.fps = fps;
+    }
+
+    /// Publishes the wall clock the renderer also feeds the shader. Called once
+    /// per frame, before any game callback runs.
+    pub(crate) fn set_elapsed(&mut self, elapsed_time: f64) {
+        self.elapsed_time = elapsed_time;
     }
 
     /// Sets the fixed-step timing values. Called before each `on_fixed_update`.
@@ -205,6 +213,10 @@ impl<A: InputAction> GameContext<A> for Context<A> {
 
     fn delta_time(&self) -> f64 {
         self.delta_time
+    }
+
+    fn elapsed_time(&self) -> f64 {
+        self.elapsed_time
     }
 
     fn fixed_delta(&self) -> f64 {

@@ -1,0 +1,48 @@
+{
+  "source": "source.blend",
+  "source_sha256": "5edf1396bf621df028f05a4901ffadc8056662514e70048e1692e1d9ef2260d2",
+  "scene": "Unites War - Floresta 3D",
+  "blender_version": "5.2.1 LTS",
+  "world_size": [
+    2400,
+    540
+  ],
+  "tile_width": 800,
+  "bleed": 1,
+  "pixels_per_unit": 2,
+  "max_ground_projection_error": 0.0001327991485595703,
+  "samples": 32,
+  "dynamic_cannons": true,
+  "tiles": [
+    {
+      "file": "tile_00.png",
+      "world_x": -1,
+      "world_width": 802,
+      "pixels": [
+        1604,
+        1080
+      ],
+      "sha256": "4710a3d78e9ab6f89c801db92ece5c1b004dc41f72efdd0a60495a6b96de75df"
+    },
+    {
+      "file": "tile_01.png",
+      "world_x": 799,
+      "world_width": 802,
+      "pixels": [
+        1604,
+        1080
+      ],
+      "sha256": "a6e4b6844cad013a71f18d5d931e43340cd2b19215dcefa92b6e2cdcb3aeac18"
+    },
+    {
+      "file": "tile_02.png",
+      "world_x": 1599,
+      "world_width": 802,
+      "pixels": [
+        1604,
+        1080
+      ],
+      "sha256": "748431676cf94660f8b14dfbe28105098663b548ce4340b5222a437a51c30630"
+    }
+  ]
+}

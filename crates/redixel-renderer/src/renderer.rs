@@ -12,7 +12,7 @@ use winit::{
     window::{self, Window},
 };
 
-use redixel_core::{RedixelError, TextureId};
+use redixel_core::{RedixelError, TextureFilter, TextureId};
 use redixel_math::{Color, Mat4, Vec2, Vec3};
 
 use crate::{
@@ -93,7 +93,18 @@ impl Renderer {
     /// to leave the handle usable: the slot stays empty and draws against it
     /// render the checkerboard.
     pub fn load_texture(&mut self, id: TextureId, bytes: &[u8]) -> Result<(), RedixelError> {
-        self.textures.upload(&self.device.device, &self.device.queue, id, bytes)
+        self.load_texture_filtered(id, bytes, TextureFilter::Nearest)
+    }
+
+    /// Decodes `bytes` and uploads the image with an explicit sampling mode.
+    pub fn load_texture_filtered(
+        &mut self,
+        id: TextureId,
+        bytes: &[u8],
+        filter: TextureFilter,
+    ) -> Result<(), RedixelError> {
+        self.textures
+            .upload_filtered(&self.device.device, &self.device.queue, id, bytes, filter)
     }
 
     /// Drops the presentation surface to yield GPU resources back to the OS.

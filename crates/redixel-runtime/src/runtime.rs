@@ -273,9 +273,9 @@ impl<G: Game> Runtime<G> {
     /// requested in `on_update` is resident by that frame's `on_render`.
     fn upload_textures(renderer: &mut Renderer, context: &mut Context<G::Action>) {
         for request in context.drain_texture_requests() {
-            let TextureRequest { id, bytes } = request;
+            let TextureRequest { id, bytes, filter } = request;
 
-            if let Err(e) = renderer.load_texture(id, &bytes) {
+            if let Err(e) = renderer.load_texture_filtered(id, &bytes, filter) {
                 log::warn!(
                     "Failed to load texture {}: {e}. Drawing the missing-texture checkerboard.",
                     id.index()
@@ -545,7 +545,7 @@ mod tests {
 
     use mpsc::TryRecvError;
 
-    use redixel_core::{GameContext, TextureId};
+    use redixel_core::{GameContext, TextureFilter, TextureId};
     use redixel_math::{Color, Vec2};
 
     use crate::context::TextureRequest;
@@ -718,6 +718,20 @@ mod tests {
         assert_eq!(requests.len(), 1);
         assert_eq!(requests[0].id, id);
         assert_eq!(requests[0].bytes, b"png bytes");
+        assert_eq!(requests[0].filter, TextureFilter::Nearest);
+    }
+
+    #[test]
+    fn filtered_texture_request_keeps_its_sampling_mode() {
+        let mut ctx: Context<()> = Context::new();
+        let id: TextureId = ctx.load_texture_filtered(b"smooth png", TextureFilter::Linear);
+
+        let requests: Vec<TextureRequest> = ctx.drain_texture_requests().collect();
+
+        assert_eq!(requests.len(), 1);
+        assert_eq!(requests[0].id, id);
+        assert_eq!(requests[0].bytes, b"smooth png");
+        assert_eq!(requests[0].filter, TextureFilter::Linear);
     }
 
     #[test]

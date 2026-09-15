@@ -1,0 +1,20 @@
+{
+  "tool": "built-in image_gen",
+  "assets": [
+    {
+      "file": "sword.png",
+      "prompt": "Use case: stylized-concept. Asset type: single square PNG inventory icon for the dark fantasy strategy game Unites War. Hand-painted game item, aged black iron with muted antique gold trim, strong readable silhouette, crisp beveled edges, restrained detail readable at 32 pixels. Object centered fills 80% of square. Genuine transparent background with alpha, no backdrop, no floor, no shadow outside object, no text, no border, no tile, no extra objects. Subject: one medieval sword angled from lower left to upper right, silver steel blade, black leather grip and antique brass crossguard. Represents damage upgrade.",
+      "source": "/home/Alan/.codex/generated_images/01a06ec1-1e34-7730-9e26-91132223a2d9/exec-1e923fe1-bcf3-49d7-af31-8200d1f67ddb.png"
+    },
+    {
+      "file": "shield.png",
+      "prompt": "Use case: stylized-concept. Asset type: single square PNG inventory icon for the dark fantasy strategy game Unites War. Hand-painted game item, aged black iron with muted antique gold trim, strong readable silhouette, crisp beveled edges, restrained detail readable at 32 pixels. Object centered fills 80% of square. Genuine transparent background with alpha, no backdrop, no floor, no shadow outside object, no text, no border, no tile, no extra objects. Subject: one medieval heater shield front view, dark gunmetal face and antique brass rim with a few rivets. Represents armor defense upgrade.",
+      "source": "/home/Alan/.codex/generated_images/01a06ec1-1e34-7730-9e26-91132223a2d9/exec-2dac72b3-0635-4229-9428-306aadd81a15.png"
+    },
+    {
+      "file": "lock.png",
+      "prompt": "Use case: stylized-concept. Asset type: single square PNG inventory icon for the dark fantasy strategy game Unites War. Hand-painted game item, aged black iron with muted antique gold trim, strong readable silhouette, crisp beveled edges, restrained detail readable at 32 pixels. Object centered fills 80% of square. Genuine transparent background with alpha, no backdrop, no floor, no shadow outside object, no text, no border, no tile, no extra objects. Subject: one closed chunky medieval padlock front view, antique brass body, black iron shackle, dark keyhole, clearly locked. Represents a locked game upgrade or unit.",
+      "source": "/home/Alan/.codex/generated_images/01a06ec1-1e34-7730-9e26-91132223a2d9/exec-ae49f2fd-9ee8-43fb-bbc5-ac0b4aa18908.png"
+    }
+  ]
+}

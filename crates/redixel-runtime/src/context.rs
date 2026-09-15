@@ -1,5 +1,5 @@
 use redixel_core::{
-    RedixelError, TextureId,
+    RedixelError, TextureFilter, TextureId,
     game::{GameContext, InputBind, InputQuery},
     input::InputAction,
     net::{NetworkManager, NoOpNetwork},
@@ -52,6 +52,7 @@ pub enum DrawCommand {
 pub struct TextureRequest {
     pub id: TextureId,
     pub bytes: Vec<u8>,
+    pub filter: TextureFilter,
 }
 
 /// Concrete engine context passed to [`Game`](redixel_core::Game) callbacks each frame.
@@ -122,10 +123,10 @@ impl<A: InputAction> Context<A> {
     }
 
     /// Reserves the next handle and queues `bytes` for the runtime to upload.
-    fn queue_texture(&mut self, bytes: Vec<u8>) -> TextureId {
+    fn queue_texture(&mut self, bytes: Vec<u8>, filter: TextureFilter) -> TextureId {
         let id: TextureId = self.reserve_texture_id();
 
-        self.texture_requests.push(TextureRequest { id, bytes });
+        self.texture_requests.push(TextureRequest { id, bytes, filter });
         id
     }
 
@@ -279,13 +280,17 @@ impl<A: InputAction> GameContext<A> for Context<A> {
     }
 
     fn load_texture(&mut self, bytes: &[u8]) -> TextureId {
-        self.queue_texture(bytes.to_vec())
+        self.queue_texture(bytes.to_vec(), TextureFilter::Nearest)
+    }
+
+    fn load_texture_filtered(&mut self, bytes: &[u8], filter: TextureFilter) -> TextureId {
+        self.queue_texture(bytes.to_vec(), filter)
     }
 
     #[cfg(not(target_arch = "wasm32"))]
     fn load_texture_file(&mut self, path: &str) -> TextureId {
         match std::fs::read(path) {
-            Ok(bytes) => self.queue_texture(bytes),
+            Ok(bytes) => self.queue_texture(bytes, TextureFilter::Nearest),
             Err(e) => {
                 log::warn!("Failed to read texture '{path}': {e}. Drawing the missing-texture checkerboard.");
                 self.reserve_texture_id()

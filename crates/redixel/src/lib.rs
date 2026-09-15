@@ -18,7 +18,7 @@ pub use entry_point::__private;
 pub mod prelude {
     pub use redixel_core::{
         ClientId, Game, GameContext, InputAction, InputSource, KeyCode, KeyState, MouseButton, NetworkChannel,
-        NetworkEvent, NetworkManager, RedixelError, SERVER_ID, SequenceBuffer, TextureId,
+        NetworkEvent, NetworkManager, RedixelError, SERVER_ID, SequenceBuffer, TextureFilter, TextureId,
     };
 
     pub use redixel_math::{Color, Mat4, Vec2, Vec3};

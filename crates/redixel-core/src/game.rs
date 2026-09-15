@@ -2,7 +2,11 @@ use winit::{event::MouseButton, keyboard::KeyCode};
 
 use redixel_math::{Color, Vec2, Vec3};
 
-use crate::{InputAction, InputSource, RedixelError, net::NetworkManager, texture::TextureId};
+use crate::{
+    InputAction, InputSource, RedixelError,
+    net::NetworkManager,
+    texture::{TextureFilter, TextureId},
+};
 
 /// The entry point for user game logic.
 ///
@@ -172,6 +176,16 @@ pub trait GameContext<A: InputAction> {
     /// `bytes` is the encoded file, not raw pixels. Prefer `include_bytes!`,
     /// which works identically on desktop, web, and mobile.
     fn load_texture(&mut self, bytes: &[u8]) -> TextureId;
+
+    /// Registers an image using the requested sampling mode.
+    ///
+    /// The default implementation keeps existing custom contexts compatible
+    /// by delegating to [`load_texture`](Self::load_texture). The engine
+    /// runtime honours the filter for the uploaded GPU texture.
+    fn load_texture_filtered(&mut self, bytes: &[u8], filter: TextureFilter) -> TextureId {
+        let _ = filter;
+        self.load_texture(bytes)
+    }
 
     /// Reads an image from disk and registers it, as [`load_texture`](Self::load_texture) does.
     ///

@@ -2223,6 +2223,7 @@ version = "0.5.0"
 dependencies = [
  "log",
  "pollster",
+ "redixel-audio",
  "redixel-core",
  "redixel-math",
  "redixel-net",

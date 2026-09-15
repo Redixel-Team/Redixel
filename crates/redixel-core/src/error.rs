@@ -53,6 +53,12 @@ pub enum RedixelError {
     #[error("Texture decode error: {0}")]
     TextureDecode(String),
 
+    #[error("Audio device error: {0}")]
+    AudioDevice(String),
+
+    #[error("Audio decode error: {0}")]
+    AudioDecode(String),
+
     #[error("Logger initialization failed: {0}")]
     Logger(String),
 

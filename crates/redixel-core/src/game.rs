@@ -2,7 +2,12 @@ use winit::{event::MouseButton, keyboard::KeyCode};
 
 use redixel_math::{Color, Vec2, Vec3};
 
-use crate::{InputAction, InputSource, RedixelError, net::NetworkManager, texture::TextureId};
+use crate::{
+    InputAction, InputSource, RedixelError,
+    audio::{AudioChannel, MusicOptions, SoundId},
+    net::NetworkManager,
+    texture::TextureId,
+};
 
 /// The entry point for user game logic.
 ///
@@ -174,6 +179,41 @@ pub trait GameContext<A: InputAction> {
     #[cfg(not(target_arch = "wasm32"))]
     fn load_texture_file(&mut self, path: &str) -> TextureId;
 
+    /// Registers an audio clip for loading and returns the handle to play it
+    /// with.
+    ///
+    /// The handle comes back immediately but decoding happens later, on a
+    /// dedicated thread (native) or through the browser's asynchronous
+    /// `decodeAudioData` (web), so a large file never stalls a frame. Call
+    /// this from `on_start`: a play issued while the clip is still decoding
+    /// starts once it finishes, but one still waiting a couple of seconds
+    /// later is dropped.
+    ///
+    /// A clip is decoded in full and held as 32-bit float samples — roughly
+    /// 20 MB per minute of stereo audio — which suits sound effects and short
+    /// loops better than long music tracks.
+    ///
+    /// A failed decode is **not** an error: it logs a warning and the handle
+    /// plays silently forever after.
+    ///
+    /// `bytes` is the encoded file (WAV or OGG Vorbis), not raw samples.
+    /// Prefer `include_bytes!`, which works identically on desktop, web, and
+    /// mobile.
+    fn load_sound(&mut self, bytes: &[u8]) -> SoundId;
+
+    /// Reads an audio file from disk and registers it, as
+    /// [`load_sound`](Self::load_sound) does.
+    ///
+    /// `path` is resolved **relative to the process's working directory**, the
+    /// same caveat that applies to `config/config.json`. A game that must run
+    /// from anywhere should use `include_bytes!` instead. Unavailable on web,
+    /// which has no filesystem.
+    ///
+    /// An unreadable path logs a warning and still yields a handle, one that
+    /// plays silently, so game code never has to unwrap a `None`.
+    #[cfg(not(target_arch = "wasm32"))]
+    fn load_sound_file(&mut self, path: &str) -> SoundId;
+
     /// Sets the background clear colour for this frame.
     fn clear_color(&mut self, color: Color);
 
@@ -228,6 +268,56 @@ pub trait GameContext<A: InputAction> {
     /// [`draw_triangle_3d_textured`](Self::draw_triangle_3d_textured) does,
     /// multiplying every sampled texel by `tint`.
     fn draw_triangle_3d_textured_tinted(&mut self, points: [Vec3; 3], uvs: [Vec2; 3], texture: TextureId, tint: Color);
+
+    /// Plays `sound` once through the [`Sfx`](AudioChannel::Sfx) channel, at
+    /// unity volume and pitch. Does not block — see
+    /// [`load_sound`](Self::load_sound).
+    fn play_sound(&mut self, sound: SoundId);
+
+    /// Plays `sound` as [`play_sound`](Self::play_sound) does, with explicit
+    /// `volume` (`0.0` to `1.0`, multiplied with the `Sfx` channel and master
+    /// volume) and `pitch` (a playback-rate multiplier — `1.0` is unchanged,
+    /// `2.0` is an octave up and twice as fast, `0.5` an octave down and half
+    /// as fast).
+    ///
+    /// Both are clamped: `volume` into `0.0..=1.0` and `pitch` into
+    /// [`MIN_PITCH`](crate::audio::MIN_PITCH)`..=`[`MAX_PITCH`](crate::audio::MAX_PITCH).
+    fn play_sound_with(&mut self, sound: SoundId, volume: f32, pitch: f32);
+
+    /// Plays `sound` in a loop on the [`Music`](AudioChannel::Music) channel,
+    /// cutting whatever is currently playing there.
+    fn play_music(&mut self, sound: SoundId);
+
+    /// Plays `sound` on the `Music` channel as [`play_music`](Self::play_music)
+    /// does, with explicit [`MusicOptions`] — volume, fade in, and a crossfade
+    /// against the outgoing track so switching never leaves a gap of silence.
+    fn play_music_with(&mut self, sound: SoundId, options: MusicOptions);
+
+    /// Stops the current music track immediately.
+    fn stop_music(&mut self);
+
+    /// Stops the current music track, fading its volume to zero over
+    /// `fade_out_seconds` instead of cutting it immediately.
+    fn stop_music_fade(&mut self, fade_out_seconds: f32);
+
+    /// The current master volume (`0.0` to `1.0`), applied on top of both
+    /// channels.
+    fn master_volume(&self) -> f32;
+
+    /// Sets the master volume, clamped into `0.0..=1.0`.
+    ///
+    /// A volume left changed at the end of a session is written back to
+    /// `config/config.json` when the app exits cleanly, so it carries over to
+    /// the next run. The web build has no file to write it to.
+    fn set_master_volume(&mut self, volume: f32);
+
+    /// The current volume (`0.0` to `1.0`) of `channel`, independent of the
+    /// other channel and of the master volume.
+    fn channel_volume(&self, channel: AudioChannel) -> f32;
+
+    /// Sets `channel`'s volume, clamped into `0.0..=1.0` and persisted the
+    /// same way [`set_master_volume`](Self::set_master_volume) is.
+    fn set_channel_volume(&mut self, channel: AudioChannel, volume: f32);
 
     /// Extracts any pending engine error out of the context.
     fn take_error(&mut self) -> Option<RedixelError>;

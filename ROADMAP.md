@@ -66,7 +66,7 @@
 - [ ] **Asset Manager:** Implement a caching system to load resources once and reference them by ID/Handle.
 - [ ] **Async Asset Loading:** Implement non-blocking resource fetching (Promises/Futures) to prevent WASM thread freezing during heavy I/O.
 - [ ] **Scene Management:** Define a custom file format for saving/loading level data.
-- [ ] **Audio Engine:** Implement a basic audio mixer (handling buffers and mixing raw PCM data).
+- [x] **Audio Engine:** `redixel-audio` (optional `audio` feature) mixes decoded PCM behind the `AudioManager` trait — `cpal` with the engine's own multi-voice mixer natively, the Web Audio API on the web. `GameContext::play_sound`/`play_music` cover one-shot effects and looping, crossfading music; master and per-channel volume persist through `config.json`. Positional/3D audio stays out of scope until a 3D game needs it.
 
 ## **Phase 7 — Physics (2D)**
 

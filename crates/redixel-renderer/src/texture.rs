@@ -10,7 +10,7 @@ use wgpu::{
     TextureViewDescriptor, TextureViewDimension,
 };
 
-use redixel_core::{RedixelError, TextureId};
+use redixel_core::{RedixelError, TextureFilter, TextureId};
 
 const RGBA_BYTES_PER_TEXEL: u32 = 4;
 const CHECKERBOARD_SIZE: u32 = 16;
@@ -48,7 +48,8 @@ fn checkerboard_rgba(size: u32, cell: u32) -> Vec<u8> {
 /// a warning and a checkerboard rather than a dead frame.
 pub struct TextureRegistry {
     layout: BindGroupLayout,
-    sampler: Sampler,
+    nearest_sampler: Sampler,
+    linear_sampler: Sampler,
     default: BindGroup,
     missing: BindGroup,
     entries: Vec<Option<BindGroup>>,
@@ -81,8 +82,8 @@ impl TextureRegistry {
             ],
         });
 
-        let sampler: Sampler = device.create_sampler(&SamplerDescriptor {
-            label: Some("REDIXEL_TEXTURE_SAMPLER"),
+        let nearest_sampler: Sampler = device.create_sampler(&SamplerDescriptor {
+            label: Some("REDIXEL_TEXTURE_NEAREST_SAMPLER"),
             address_mode_u: AddressMode::ClampToEdge,
             address_mode_v: AddressMode::ClampToEdge,
             address_mode_w: AddressMode::ClampToEdge,
@@ -90,12 +91,21 @@ impl TextureRegistry {
             min_filter: FilterMode::Nearest,
             ..Default::default()
         });
+        let linear_sampler: Sampler = device.create_sampler(&SamplerDescriptor {
+            label: Some("REDIXEL_TEXTURE_LINEAR_SAMPLER"),
+            address_mode_u: AddressMode::ClampToEdge,
+            address_mode_v: AddressMode::ClampToEdge,
+            address_mode_w: AddressMode::ClampToEdge,
+            mag_filter: FilterMode::Linear,
+            min_filter: FilterMode::Linear,
+            ..Default::default()
+        });
 
         let default: BindGroup = Self::create_entry(
             device,
             queue,
             &layout,
-            &sampler,
+            &nearest_sampler,
             "REDIXEL_TEXTURE_DEFAULT",
             1,
             1,
@@ -106,7 +116,7 @@ impl TextureRegistry {
             device,
             queue,
             &layout,
-            &sampler,
+            &nearest_sampler,
             "REDIXEL_TEXTURE_MISSING",
             CHECKERBOARD_SIZE,
             CHECKERBOARD_SIZE,
@@ -115,7 +125,8 @@ impl TextureRegistry {
 
         Self {
             layout,
-            sampler,
+            nearest_sampler,
+            linear_sampler,
             default,
             missing,
             entries: Vec::new(),
@@ -133,6 +144,19 @@ impl TextureRegistry {
     /// The slot is emptied first, so a failed reload of an id that already held
     /// an image falls back to the checkerboard rather than leaving the stale one.
     pub fn upload(&mut self, device: &Device, queue: &Queue, id: TextureId, bytes: &[u8]) -> Result<(), RedixelError> {
+        self.upload_filtered(device, queue, id, bytes, TextureFilter::Nearest)
+    }
+
+    /// Decodes and uploads `bytes`, choosing how the texture is sampled when
+    /// its draw size differs from its source dimensions.
+    pub fn upload_filtered(
+        &mut self,
+        device: &Device,
+        queue: &Queue,
+        id: TextureId,
+        bytes: &[u8],
+        filter: TextureFilter,
+    ) -> Result<(), RedixelError> {
         let index: usize = id.index() as usize;
         if index >= self.entries.len() {
             self.entries.resize_with(index + 1, || None);
@@ -144,8 +168,12 @@ impl TextureRegistry {
         let (width, height): (u32, u32) = rgba.dimensions();
 
         let label: String = format!("REDIXEL_TEXTURE_{index}");
+        let sampler: &Sampler = match filter {
+            TextureFilter::Nearest => &self.nearest_sampler,
+            TextureFilter::Linear => &self.linear_sampler,
+        };
         let bind_group: BindGroup =
-            Self::create_entry(device, queue, &self.layout, &self.sampler, &label, width, height, &rgba);
+            Self::create_entry(device, queue, &self.layout, sampler, &label, width, height, &rgba);
 
         self.entries[index] = Some(bind_group);
         Ok(())

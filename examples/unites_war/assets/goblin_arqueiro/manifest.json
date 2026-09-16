@@ -1,0 +1,80 @@
+{
+  "source_sha256": "503be44ce7a7f3999e4307ff54e3e16f059b91ccb3bf2ee09cb4b2ce61490d04",
+  "blender_version": "5.2.1 LTS",
+  "size": 192,
+  "anchor_uv": [
+    0.37104877919791035,
+    0.9464285424222529
+  ],
+  "canvas_height_ratio": 1.1237651593983173,
+  "stride_height_ratio": 0.5799802812321625,
+  "run_seconds": 0.8,
+  "attack_seconds": 1.2,
+  "hit_fraction": 0.4722222222222222,
+  "idle_seconds": 1.0,
+  "attack_times": [
+    0.0,
+    0.05555555555555555,
+    0.1111111111111111,
+    0.16666666666666666,
+    0.2222222222222222,
+    0.2777777777777778,
+    0.3333333333333333,
+    0.3888888888888889,
+    0.4444444444444444,
+    0.4722222222222222,
+    0.5,
+    0.5555555555555556,
+    0.6111111111111112,
+    0.6666666666666666,
+    0.7222222222222222,
+    0.7777777777777778,
+    0.8333333333333334,
+    0.8888888888888888,
+    0.9444444444444444,
+    1.0
+  ],
+  "files": {
+    "idle": [
+      "idle_00.png"
+    ],
+    "run": [
+      "run_00.png",
+      "run_01.png",
+      "run_02.png",
+      "run_03.png",
+      "run_04.png",
+      "run_05.png",
+      "run_06.png",
+      "run_07.png",
+      "run_08.png",
+      "run_09.png",
+      "run_10.png",
+      "run_11.png"
+    ],
+    "attack": [
+      "attack_00.png",
+      "attack_01.png",
+      "attack_02.png",
+      "attack_03.png",
+      "attack_04.png",
+      "attack_05.png",
+      "attack_06.png",
+      "attack_07.png",
+      "attack_08.png",
+      "attack_09.png",
+      "attack_10.png",
+      "attack_11.png",
+      "attack_12.png",
+      "attack_13.png",
+      "attack_14.png",
+      "attack_15.png",
+      "attack_16.png",
+      "attack_17.png",
+      "attack_18.png",
+      "attack_19.png"
+    ]
+  },
+  "facing": "right",
+  "root_motion": false
+}

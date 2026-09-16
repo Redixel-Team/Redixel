@@ -5,7 +5,7 @@ pub mod runtime;
 pub mod settings;
 pub mod time;
 
-pub use context::{Context, DrawCommand};
+pub use context::{AudioCommand, Context, DrawCommand};
 pub use runtime::{DEFAULT_TICKRATE, Runtime, RuntimeConfig};
 #[cfg(not(target_arch = "wasm32"))]
 pub use runtime::{HeadlessRuntime, run_headless};

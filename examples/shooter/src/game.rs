@@ -1,4 +1,4 @@
-use redixel::prelude::{Color, Game, GameContext, KeyCode, MouseButton, Vec2};
+use redixel::prelude::{Color, Game, GameContext, KeyCode, MouseButton, SoundId, Vec2};
 
 use crate::{
     common::{
@@ -7,6 +7,16 @@ use crate::{
     },
     effects::{Effects, ParticleProps},
 };
+
+/// A short descending blip, played on every shot the player fires.
+const SHOOT_SFX: &[u8] = include_bytes!("../assets/audio/shoot.wav");
+
+/// A short impact thud, played whenever a bullet lands on an agent.
+const HIT_SFX: &[u8] = include_bytes!("../assets/audio/hit.wav");
+
+/// A four-second synthwave loop — pulsing bass, arpeggio and a soft kick over
+/// Am-F-C-G — that repeats seamlessly as background music.
+const MUSIC: &[u8] = include_bytes!("../assets/audio/music.wav");
 
 /// The player's input action set, bound to keyboard and mouse in `on_start`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -106,6 +116,8 @@ pub struct Shooter {
     powerup: PowerUp,
     fx: Effects,
     time_since_start: f32,
+    shoot_sfx: Option<SoundId>,
+    hit_sfx: Option<SoundId>,
 }
 
 impl Shooter {
@@ -131,6 +143,8 @@ impl Shooter {
                 weapon: WeaponType::Shotgun,
                 pos: Vec2::new(0.0, 100.0),
             },
+            shoot_sfx: None,
+            hit_sfx: None,
         }
     }
 
@@ -360,6 +374,11 @@ impl Shooter {
 
                         agent.vel -= dir_vec * recoil;
                         self.fx.add_shake(recoil * 0.015);
+
+                        if let Some(sound) = self.shoot_sfx {
+                            let jittered_pitch: f32 = 0.92 + (self.time_since_start * 17.0).fract() * 0.24;
+                            ctx.play_sound_with(sound, 0.5, jittered_pitch);
+                        }
                     }
                 }
             } else {
@@ -537,7 +556,7 @@ impl Shooter {
 
     /// Resolves bullet-vs-agent and bullet-vs-bullet collisions, applying
     /// damage, knockback, respawns, and the matching particle bursts.
-    fn resolve_collisions(&mut self, w: f32, h: f32) {
+    fn resolve_collisions(&mut self, ctx: &mut dyn GameContext<Action>, w: f32, h: f32) {
         let bullets_len: usize = self.bullets.len();
 
         for i in 0..bullets_len {
@@ -563,6 +582,10 @@ impl Shooter {
                         life: 0.4,
                         size: 6.0,
                     });
+
+                    if let Some(sound) = self.hit_sfx {
+                        ctx.play_sound(sound);
+                    }
 
                     if agent.health <= 0 {
                         self.fx.spawn_burst(ParticleProps {
@@ -771,6 +794,12 @@ impl Game for Shooter {
         ctx.input_mut().bind(Action::Exit, KeyCode::Escape.into());
         ctx.input_mut().bind(Action::Shoot, MouseButton::Left.into());
         ctx.input_mut().bind(Action::Dash, KeyCode::Space.into());
+
+        self.shoot_sfx = Some(ctx.load_sound(SHOOT_SFX));
+        self.hit_sfx = Some(ctx.load_sound(HIT_SFX));
+
+        let music: SoundId = ctx.load_sound(MUSIC);
+        ctx.play_music(music);
     }
 
     fn on_update(&mut self, ctx: &mut dyn GameContext<Self::Action>) {
@@ -790,7 +819,7 @@ impl Game for Shooter {
         self.step_agents(ctx, dt, w, h);
         self.resolve_agent_overlap(w, h);
         self.step_bullets(dt, w, h);
-        self.resolve_collisions(w, h);
+        self.resolve_collisions(ctx, w, h);
     }
 
     fn on_render(&mut self, ctx: &mut dyn GameContext<Self::Action>) {

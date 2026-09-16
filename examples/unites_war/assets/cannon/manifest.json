@@ -1,0 +1,35 @@
+{
+  "angle_min": -10,
+  "angle_step": 5,
+  "canvas_world_size": 128,
+  "pivot": [
+    0.5,
+    0.5
+  ],
+  "muzzle_world_distance": 46.4,
+  "ball_diameter": 10,
+  "source": "source.blend",
+  "sprites": [
+    "cannon_000.png",
+    "cannon_005.png",
+    "cannon_010.png",
+    "cannon_015.png",
+    "cannon_020.png",
+    "cannon_025.png",
+    "cannon_030.png",
+    "cannon_035.png",
+    "cannon_040.png",
+    "cannon_045.png",
+    "cannon_050.png",
+    "cannon_055.png",
+    "cannon_060.png",
+    "cannon_065.png",
+    "cannon_070.png",
+    "cannon_075.png",
+    "cannon_080.png",
+    "cannon_085.png",
+    "cannon_090.png",
+    "cannon_095.png",
+    "cannon_100.png"
+  ]
+}

@@ -1,0 +1,4 @@
+# Local Blender/Python working files; keep source.blend and exported assets.
+__pycache__/
+*.py[cod]
+*.blend[0-9]

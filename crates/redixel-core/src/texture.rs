@@ -1,3 +1,14 @@
+/// How a texture is sampled when it is drawn at a different size.
+///
+/// [`Nearest`](Self::Nearest) preserves hard pixel-art edges, while
+/// [`Linear`](Self::Linear) blends neighbouring texels for smooth artwork.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
+pub enum TextureFilter {
+    #[default]
+    Nearest,
+    Linear,
+}
+
 /// An opaque handle to a texture the engine has been asked to load.
 ///
 /// Issued the moment a game calls `load_texture`, before any decoding or GPU

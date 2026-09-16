@@ -1,5 +1,6 @@
 use redixel_core::{
     RedixelError, TextureFilter, TextureId,
+    audio::{AudioChannel, AudioConfig, MusicOptions, SoundId, clamp_fade, clamp_pitch, clamp_volume},
     game::{GameContext, InputBind, InputQuery},
     input::InputAction,
     net::{NetworkManager, NoOpNetwork},
@@ -55,6 +56,29 @@ pub struct TextureRequest {
     pub filter: TextureFilter,
 }
 
+/// An audio command buffered by `GameContext` and flushed by the runtime, its
+/// volumes, pitch and fades already clamped.
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub enum AudioCommand {
+    PlaySound { clip: SoundId, volume: f32, pitch: f32 },
+    PlayMusic { clip: SoundId, options: MusicOptions },
+    StopMusic { fade_out: f32 },
+    SetMasterVolume(f32),
+    SetChannelVolume { channel: AudioChannel, volume: f32 },
+}
+
+/// An audio clip the game asked to load, waiting for the runtime to hand it
+/// to the audio backend.
+///
+/// The bytes are owned for the same reason [`TextureRequest`]'s are: the
+/// request outlives the call that made it.
+#[derive(Debug, Clone)]
+pub struct SoundRequest {
+    pub id: SoundId,
+    pub bytes: Vec<u8>,
+}
+
 /// Concrete engine context passed to [`Game`](redixel_core::Game) callbacks each frame.
 ///
 /// Implements [`GameContext`] and is passed as `&mut dyn GameContext` to keep
@@ -66,6 +90,7 @@ pub struct Context<A: InputAction> {
     should_exit: bool,
     error: Option<RedixelError>,
     delta_time: f64,
+    elapsed_time: f64,
     fps: f64,
     fixed_delta: f64,
     fixed_tick: u64,
@@ -76,9 +101,13 @@ pub struct Context<A: InputAction> {
     fullscreen: bool,
     fullscreen_request: Option<bool>,
     next_texture_id: u32,
+    next_sound_id: u32,
+    volumes: AudioConfig,
     pub(crate) input: InputManager<A>,
     pub(crate) commands: Vec<DrawCommand>,
     pub(crate) texture_requests: Vec<TextureRequest>,
+    pub(crate) audio_commands: Vec<AudioCommand>,
+    pub(crate) sound_requests: Vec<SoundRequest>,
     pub(crate) network: Box<dyn NetworkManager>,
 }
 
@@ -94,6 +123,7 @@ impl<A: InputAction> Context<A> {
             should_exit: false,
             error: None,
             delta_time: 0.0,
+            elapsed_time: 0.0,
             fps: 0.0,
             fixed_delta: 0.0,
             fixed_tick: 0,
@@ -104,11 +134,27 @@ impl<A: InputAction> Context<A> {
             fullscreen: false,
             fullscreen_request: None,
             next_texture_id: 0,
+            next_sound_id: 0,
+            volumes: AudioConfig::default(),
             input: InputManager::new(),
             commands: Vec::with_capacity(1024),
             texture_requests: Vec::new(),
+            audio_commands: Vec::new(),
+            sound_requests: Vec::new(),
             network,
         }
+    }
+
+    /// Starts the context at `volumes`, clamped, so `master_volume` and
+    /// `channel_volume` read the configured values before the game sets any.
+    pub fn with_audio(mut self, volumes: AudioConfig) -> Self {
+        self.volumes = volumes.clamped();
+        self
+    }
+
+    /// The master and channel volumes as the game last set them.
+    pub(crate) fn volumes(&self) -> AudioConfig {
+        self.volumes
     }
 
     /// Reserves a handle with nothing queued against it, which is what a load
@@ -130,10 +176,34 @@ impl<A: InputAction> Context<A> {
         id
     }
 
+    /// Reserves a sound handle with nothing queued against it, mirroring
+    /// [`reserve_texture_id`](Self::reserve_texture_id) for the same reason:
+    /// a load that failed before producing bytes still needs a valid handle.
+    fn reserve_sound_id(&mut self) -> SoundId {
+        let id: SoundId = SoundId::new(self.next_sound_id);
+        self.next_sound_id += 1;
+        id
+    }
+
+    /// Reserves the next sound handle and queues `bytes` for the runtime to
+    /// hand to the audio backend.
+    fn queue_sound(&mut self, bytes: Vec<u8>) -> SoundId {
+        let id: SoundId = self.reserve_sound_id();
+
+        self.sound_requests.push(SoundRequest { id, bytes });
+        id
+    }
+
     /// Updates per-frame timing values. Called before `on_update`.
     pub(crate) fn update_timing(&mut self, delta_time: f64, fps: f64) {
         self.delta_time = delta_time;
         self.fps = fps;
+    }
+
+    /// Publishes the wall clock the renderer also feeds the shader. Called once
+    /// per frame, before any game callback runs.
+    pub(crate) fn set_elapsed(&mut self, elapsed_time: f64) {
+        self.elapsed_time = elapsed_time;
     }
 
     /// Sets the fixed-step timing values. Called before each `on_fixed_update`.
@@ -189,17 +259,29 @@ impl<A: InputAction> Context<A> {
         self.texture_requests.drain(..)
     }
 
+    /// Drains queued audio commands for the audio backend to dispatch.
+    pub(crate) fn drain_audio_commands(&mut self) -> impl Iterator<Item = AudioCommand> + '_ {
+        self.audio_commands.drain(..)
+    }
+
+    /// Drains queued sound loads for the audio backend to decode.
+    pub(crate) fn drain_sound_requests(&mut self) -> impl Iterator<Item = SoundRequest> + '_ {
+        self.sound_requests.drain(..)
+    }
+
     /// Resets transient per-frame flags. Called after the renderer flushes.
     ///
-    /// Texture requests are cleared here too: the windowed runtime has already
-    /// drained them, but headless never does, and the queue would otherwise
-    /// grow for the life of the process.
+    /// Texture and sound requests, and audio commands, are cleared here too:
+    /// the windowed runtime has already drained them, but headless never
+    /// does, and the queues would otherwise grow for the life of the process.
     pub(crate) fn reset_frame(&mut self) {
         self.should_exit = false;
         self.surface_size_request = None;
         self.fullscreen_request = None;
         self.commands.clear();
         self.texture_requests.clear();
+        self.audio_commands.clear();
+        self.sound_requests.clear();
     }
 
     /// Round-trip time to the server in milliseconds, once known — `None`
@@ -226,6 +308,10 @@ impl<A: InputAction> GameContext<A> for Context<A> {
 
     fn delta_time(&self) -> f64 {
         self.delta_time
+    }
+
+    fn elapsed_time(&self) -> f64 {
+        self.elapsed_time
     }
 
     fn fixed_delta(&self) -> f64 {
@@ -298,6 +384,21 @@ impl<A: InputAction> GameContext<A> for Context<A> {
         }
     }
 
+    fn load_sound(&mut self, bytes: &[u8]) -> SoundId {
+        self.queue_sound(bytes.to_vec())
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn load_sound_file(&mut self, path: &str) -> SoundId {
+        match std::fs::read(path) {
+            Ok(bytes) => self.queue_sound(bytes),
+            Err(e) => {
+                log::warn!("Failed to read sound '{path}': {e}. It will never resolve.");
+                self.reserve_sound_id()
+            }
+        }
+    }
+
     fn clear_color(&mut self, color: Color) {
         self.commands
             .retain(|c: &DrawCommand| !matches!(c, DrawCommand::ClearColor(..)));
@@ -340,6 +441,60 @@ impl<A: InputAction> GameContext<A> for Context<A> {
             texture,
             tint,
         });
+    }
+
+    fn play_sound(&mut self, sound: SoundId) {
+        self.play_sound_with(sound, 1.0, 1.0);
+    }
+
+    fn play_sound_with(&mut self, sound: SoundId, volume: f32, pitch: f32) {
+        self.audio_commands.push(AudioCommand::PlaySound {
+            clip: sound,
+            volume: clamp_volume(volume),
+            pitch: clamp_pitch(pitch),
+        });
+    }
+
+    fn play_music(&mut self, sound: SoundId) {
+        self.play_music_with(sound, MusicOptions::default());
+    }
+
+    fn play_music_with(&mut self, sound: SoundId, options: MusicOptions) {
+        self.audio_commands.push(AudioCommand::PlayMusic {
+            clip: sound,
+            options: options.clamped(),
+        });
+    }
+
+    fn stop_music(&mut self) {
+        self.stop_music_fade(0.0);
+    }
+
+    fn stop_music_fade(&mut self, fade_out_seconds: f32) {
+        self.audio_commands.push(AudioCommand::StopMusic {
+            fade_out: clamp_fade(fade_out_seconds),
+        });
+    }
+
+    fn master_volume(&self) -> f32 {
+        self.volumes.master_volume
+    }
+
+    fn set_master_volume(&mut self, volume: f32) {
+        self.volumes.master_volume = clamp_volume(volume);
+        self.audio_commands
+            .push(AudioCommand::SetMasterVolume(self.volumes.master_volume));
+    }
+
+    fn channel_volume(&self, channel: AudioChannel) -> f32 {
+        self.volumes.channel(channel)
+    }
+
+    fn set_channel_volume(&mut self, channel: AudioChannel, volume: f32) {
+        let volume: f32 = clamp_volume(volume);
+        self.volumes.set_channel(channel, volume);
+        self.audio_commands
+            .push(AudioCommand::SetChannelVolume { channel, volume });
     }
 
     fn take_error(&mut self) -> Option<RedixelError> {

@@ -4,11 +4,12 @@ This document details the configuration options available for the **Redixel** en
 
 ## Structure Overview
 
-The configuration is divided into three main sections:
+The configuration is divided into four main sections:
 
 1.  **[app](#app)**: General application metadata.
 2.  **[window](#window)**: Display and windowing settings.
 3.  **[renderer](#renderer)**: Graphics API and presentation logic.
+4.  **[audio](#audio)**: Master and per-channel volume.
 
 ---
 
@@ -94,5 +95,29 @@ Determines how the engine synchronizes with the display (VSync behavior).
 "renderer": {
     "present_mode": 0,
     "backend": 0
+}
+```
+
+---
+
+### `audio`
+
+Master and per-channel volume, each from `0.0` (silent) to `1.0` (unattenuated); values outside that range are clamped.
+
+Unlike the other sections, the engine also writes this one back: a volume the game changed with `GameContext::set_master_volume` or `set_channel_volume` is saved to `config.json` when the app exits cleanly, leaving every other key and its order untouched. Nothing is written if the file failed to load, and the web build has no file to write to.
+
+| Field           | Type  | Description                                          |
+| :-------------- | :---- | :--------------------------------------------------- |
+| `master_volume` | Float | Overall volume, multiplied into both channels below. |
+| `sfx_volume`    | Float | Volume of sound effects played with `play_sound`.    |
+| `music_volume`  | Float | Volume of music played with `play_music`.            |
+
+**Example:**
+
+```json
+"audio": {
+    "master_volume": 1.0,
+    "sfx_volume": 1.0,
+    "music_volume": 1.0
 }
 ```

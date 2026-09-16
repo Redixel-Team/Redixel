@@ -44,11 +44,11 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Install Linux Graphics Deps
+      - name: Install Linux Graphics & Audio Deps
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libxkbcommon-x11-0 xvfb mesa-vulkan-drivers
+          sudo apt-get install -y libxkbcommon-x11-0 xvfb mesa-vulkan-drivers libasound2-dev
 
       - name: Setup Rust
         run: rustup show
@@ -70,6 +70,14 @@ jobs:
           args: '--features redixel-runtime/net,redixel/net --all-targets -- -D warnings'
           skip-examples: 'true'
 
+      - name: Lint Audio Crates (audio feature)
+        uses: ./.github/actions/cargo-each
+        with:
+          subcommand: clippy
+          root-flag: '-p redixel-core -p redixel-audio -p redixel-runtime -p redixel'
+          args: '--features redixel-runtime/audio,redixel/audio --all-targets -- -D warnings'
+          skip-examples: 'true'
+
       - name: Run Tests (Linux)
         if: runner.os == 'Linux'
         uses: ./.github/actions/cargo-each
@@ -87,6 +95,18 @@ jobs:
           subcommand: test
           root-flag: '-p redixel-core -p redixel-net -p redixel-runtime -p redixel'
           args: '--features redixel-runtime/net,redixel/net --verbose'
+          skip-examples: 'true'
+          xvfb: 'true'
+        env:
+          WGPU_BACKEND: vulkan
+
+      - name: Test Audio Crates (audio feature, Linux)
+        if: runner.os == 'Linux'
+        uses: ./.github/actions/cargo-each
+        with:
+          subcommand: test
+          root-flag: '-p redixel-core -p redixel-audio -p redixel-runtime -p redixel'
+          args: '--features redixel-runtime/audio,redixel/audio --verbose'
           skip-examples: 'true'
           xvfb: 'true'
         env:
@@ -115,6 +135,15 @@ jobs:
           args: '--features redixel-runtime/net,redixel/net --verbose'
           skip-examples: 'true'
 
+      - name: Test Audio Crates (audio feature, Windows)
+        if: runner.os == 'Windows'
+        uses: ./.github/actions/cargo-each
+        with:
+          subcommand: test
+          root-flag: '-p redixel-core -p redixel-audio -p redixel-runtime -p redixel'
+          args: '--features redixel-runtime/audio,redixel/audio --verbose'
+          skip-examples: 'true'
+
       - name: Build Executables (Windows)
         if: runner.os == 'Windows'
         uses: ./.github/actions/cargo-each
@@ -136,6 +165,15 @@ jobs:
           subcommand: test
           root-flag: '-p redixel-core -p redixel-net -p redixel-runtime -p redixel'
           args: '--features redixel-runtime/net,redixel/net --verbose'
+          skip-examples: 'true'
+
+      - name: Test Audio Crates (audio feature, macOS)
+        if: runner.os == 'macOS'
+        uses: ./.github/actions/cargo-each
+        with:
+          subcommand: test
+          root-flag: '-p redixel-core -p redixel-audio -p redixel-runtime -p redixel'
+          args: '--features redixel-runtime/audio,redixel/audio --verbose'
           skip-examples: 'true'
 
       - name: Build Executables (macOS)

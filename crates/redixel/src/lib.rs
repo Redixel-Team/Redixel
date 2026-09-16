@@ -2,7 +2,7 @@ use std::sync::RwLockReadGuard;
 
 use winit::event_loop::{ControlFlow, EventLoop};
 
-use redixel_core::{Game, RedixelError};
+use redixel_core::{AudioConfig, Game, RedixelError};
 use redixel_platform::window::WindowConfig;
 use redixel_renderer::RendererConfig;
 use redixel_runtime::{DEFAULT_TICKRATE, EngineSettings, RawBackend, RawPresentMode, Runtime, RuntimeConfig};
@@ -17,8 +17,9 @@ pub use entry_point::__private;
 
 pub mod prelude {
     pub use redixel_core::{
-        ClientId, Game, GameContext, InputAction, InputSource, KeyCode, KeyState, MouseButton, NetworkChannel,
-        NetworkEvent, NetworkManager, RedixelError, SERVER_ID, SequenceBuffer, TextureFilter, TextureId,
+        AudioChannel, ClientId, Game, GameContext, InputAction, InputSource, KeyCode, KeyState, MouseButton,
+        MusicOptions, NetworkChannel, NetworkEvent, NetworkManager, RedixelError, SERVER_ID, SequenceBuffer, SoundId,
+        TextureFilter, TextureId,
     };
 
     pub use redixel_math::{Color, Mat4, Vec2, Vec3};
@@ -52,6 +53,11 @@ pub fn build_config() -> RuntimeConfig {
         settings.get_path("window.target_fps", 60.0),
         settings.get_path("engine.tickrate", DEFAULT_TICKRATE),
     )
+    .with_audio(AudioConfig {
+        master_volume: settings.get_path("audio.master_volume", 1.0),
+        sfx_volume: settings.get_path("audio.sfx_volume", 1.0),
+        music_volume: settings.get_path("audio.music_volume", 1.0),
+    })
 }
 
 /// Runs `game` as a single-player desktop app, loading [`RuntimeConfig`] from

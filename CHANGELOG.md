@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),  
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.6.0]
+
+### Added
+
+- **Renderer:** `GlobalUniforms`, the uniform block at `@group(0) @binding(0)` — `view` and `projection` matrices plus the frame globals `resolution` and `time`. Replaces `CameraUniform`, which carried only a projection matrix. Laid out field-for-field against the WGSL struct (144 bytes via an explicit trailing `_padding` field, since a struct holding a `mat4x4` rounds up to a 16-byte multiple), with `min_binding_size` pinned so a WGSL struct that outgrows the Rust one fails at pipeline creation. That check is a floor, not an equality: growing or reordering the Rust struct alone still binds cleanly and misreads offsets, so both declarations have to be edited together.
+- **Renderer:** both uniform blocks are rebuilt and uploaded from inside `render`, so no frame can present against a stale surface size.
+- **Runtime:** `TimeManager::elapsed_time` and `GameContext::elapsed_time` — seconds of real time since startup, previously unavailable in any form. Accumulated once per frame in `accumulate` (covering the windowed and headless runtimes alike); the spiral-of-death clamp never discards it.
+- **Audio:** `redixel-audio`, an optional crate behind a new `audio` feature (off by default, like `net`) that gives games sound through two backends chosen by `redixel_audio::build`. Natively, `cpal` drives the default output device and `symphonia` decodes WAV and OGG Vorbis in full on one dedicated thread, resampled once to the device's rate; a multi-voice mixer (up to 32 sound effects at once) runs inside `cpal`'s output callback, fed plays and stops through a lock-free ring buffer and volumes through atomics, so the callback never blocks. On the web, clips decode through `decodeAudioData` and play through a gain graph on one `AudioContext`, which resumes on the page's first key press, click or touch, as browsers require. Both backends run fades on the audio clock rather than once per frame, crossfade music so a track switch leaves no gap of silence, and degrade to `NoOpAudio` with a logged error when output cannot start.
+- **Core:** `AudioManager`, `SoundId`, `AudioChannel`, `ClipState`, `AudioConfig`, `MusicOptions` and `NoOpAudio`, compiled whether or not the `audio` feature is on, so audio calls never need a `#[cfg]`. `GameContext` gains `load_sound`/`load_sound_file`, `play_sound`/`play_sound_with`, `play_music`/`play_music_with`, `stop_music`/`stop_music_fade`, and getters and setters for the master and per-channel volume. As with textures, the handle comes back immediately and a clip that fails to decode plays silently instead of erroring. Volumes are clamped into `0.0..=1.0` and pitch into `MIN_PITCH..=MAX_PITCH`, so a `NaN` or a non-positive playback rate never reaches a backend.
+- **Runtime:** `AudioCommand`, buffered by `Context` and dispatched to the audio backend each frame right after the draw commands, the way `DrawCommand` is dispatched to the renderer. A play issued while its clip is still decoding starts once it resolves unless it has waited two seconds, and a newer `play_music` or a `stop_music` cancels an older music play still waiting, so a stale request can never start after a newer one. Audio output pauses while the app is suspended.
+- **Runtime:** `RuntimeConfig::with_audio` and an `audio` section in `config.json` (`master_volume`, `sfx_volume`, `music_volume`), read by `build_config`. Volumes the game changed during a session are written back to `config.json` on a clean exit, so they carry over to the next run.
+- **Runtime:** `EngineSettings::set_path`, `save`, `save_config_json` and `is_loaded`. `save` replaces the file atomically through a sibling temporary file, and `save_config_json` refuses to write settings that never loaded, so a missing or malformed `config.json` is never replaced by one holding only the keys set since.
+- **Examples:** `shooter` plays a shot effect on every shot the player fires, a hit effect on every bullet impact, and a looping synthwave track from `on_start`.
+
+### Changed
+
+- **Renderer:** `Renderer::render` takes the elapsed time in seconds, narrowed to `f32` only at the GPU boundary.
+- **Core:** `GameContext` gains `elapsed_time` as a required method with no default body. Breaking for any out-of-tree implementor of the trait.
+- **Renderer:** `CameraUniform`/`Camera` replaced by `GlobalUniforms`/`UniformBlock` (`camera_2d`/`camera_3d` → `globals_2d`/`globals_3d`) — the block is no longer only a camera. Breaking for direct `redixel-renderer` consumers.
+- **Renderer:** the vertex shader transforms by `projection * view`; `view` is the identity today, so output is unchanged — the multiply is the seam a camera system (planned) slots into.
+- **Core:** `GameContext` gains the audio methods above as required methods with no default body. Breaking for any out-of-tree implementor of the trait.
+- **Runtime:** `RuntimeConfig` gains a public `audio` field. Breaking for code that builds it with a struct literal instead of `windowed`/`headless`.
+- **Runtime:** `serde_json` is built with `preserve_order`, so settings written back to `config.json` keep their keys in the order they were read.
+- **Examples:** `shooter` requires Android 8.0 (API level 26), the first release with the AAudio API `cpal` plays through.
+
 ## [0.5.0]
 
 ### Added

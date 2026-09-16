@@ -54,6 +54,8 @@ impl<G: Game> SimulationCore<G> {
         }
 
         self.time.accumulate(frame_delta);
+        self.context.set_elapsed(self.time.elapsed_time());
+
         while self.time.next_fixed_step() {
             self.context.network.update();
 

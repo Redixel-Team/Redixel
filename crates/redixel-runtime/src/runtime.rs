@@ -1,6 +1,9 @@
-use std::sync::{
-    Arc, mpsc,
-    mpsc::{Receiver, Sender},
+use std::{
+    num::ParseFloatError,
+    sync::{
+        Arc, RwLockWriteGuard, mpsc,
+        mpsc::{Receiver, Sender},
+    },
 };
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -14,14 +17,16 @@ use winit::{
     window::{Window, WindowId},
 };
 
-use redixel_core::{Game, RedixelError, game::GameContext, net::NetworkManager};
+#[cfg(not(feature = "audio"))]
+use redixel_core::NoOpAudio;
+use redixel_core::{AudioConfig, AudioManager, Game, RedixelError, game::GameContext, net::NetworkManager};
 #[cfg(feature = "net")]
 use redixel_net::NetConfig;
 use redixel_platform::{WindowManager, window::WindowConfig};
 use redixel_renderer::{Renderer, RendererConfig};
 
 use crate::{
-    context::{Context, DrawCommand, TextureRequest},
+    context::{AudioCommand, Context, DrawCommand, SoundRequest, TextureRequest},
     settings::EngineSettings,
     simulation::{SimulationCore, StepFlow},
     time::TimeManager,
@@ -33,6 +38,7 @@ pub const DEFAULT_TICKRATE: f64 = 60.0;
 pub struct RuntimeConfig {
     pub window: WindowConfig,
     pub renderer: RendererConfig,
+    pub audio: AudioConfig,
     pub target_fps: f64,
     /// Fixed-update rate in Hz driving `on_fixed_update` (physics/networking).
     pub tickrate: f64,
@@ -54,6 +60,7 @@ impl RuntimeConfig {
         Self {
             window,
             renderer,
+            audio: AudioConfig::default(),
             target_fps,
             tickrate,
             #[cfg(feature = "net")]
@@ -84,6 +91,7 @@ impl RuntimeConfig {
                 fullscreen: false,
             },
             renderer: RendererConfig::default(),
+            audio: AudioConfig::default(),
         }
     }
 
@@ -91,6 +99,12 @@ impl RuntimeConfig {
     #[cfg(feature = "net")]
     pub fn with_net(mut self, net: NetConfig) -> Self {
         self.net = Some(net);
+        self
+    }
+
+    /// Sets the master and per-channel volume the game starts with.
+    pub fn with_audio(mut self, audio: AudioConfig) -> Self {
+        self.audio = audio;
         self
     }
 
@@ -107,6 +121,20 @@ impl RuntimeConfig {
         #[cfg(not(feature = "net"))]
         {
             Box::new(redixel_core::net::NoOpNetwork)
+        }
+    }
+
+    /// Builds the audio backend described by the config, or a no-op when the
+    /// `audio` feature is disabled or the platform's audio output fails to
+    /// start.
+    pub(crate) fn build_audio(&self) -> Box<dyn AudioManager> {
+        #[cfg(feature = "audio")]
+        {
+            redixel_audio::build(&self.audio)
+        }
+        #[cfg(not(feature = "audio"))]
+        {
+            Box::new(NoOpAudio::new(self.audio))
         }
     }
 }
@@ -138,7 +166,7 @@ impl<G: Game> HeadlessRuntime<G> {
         let mut time: TimeManager = TimeManager::new();
         time.set_tickrate(tickrate);
 
-        let context: Context<G::Action> = Context::with_network(config.build_network());
+        let context: Context<G::Action> = Context::with_network(config.build_network()).with_audio(config.audio);
 
         Self {
             sim: SimulationCore::new(time, context, game),
@@ -194,6 +222,7 @@ struct RunningState<G: Game> {
     renderer: Renderer,
     window: WindowManager,
     sim: SimulationCore<G>,
+    audio: Box<dyn AudioManager>,
 }
 
 enum AppState<G: Game> {
@@ -247,7 +276,8 @@ impl<G: Game> Runtime<G> {
         time.set_tickrate(self.config.tickrate);
 
         let initial_size: PhysicalSize<u32> = window.surface_size();
-        let mut context: Context<G::Action> = Context::with_network(self.config.build_network());
+        let mut context: Context<G::Action> =
+            Context::with_network(self.config.build_network()).with_audio(self.config.audio);
         context.update_state(initial_size.width, initial_size.height);
         context.update_fullscreen(window.is_fullscreen());
 
@@ -256,8 +286,15 @@ impl<G: Game> Runtime<G> {
         sim.start()?;
 
         Self::upload_textures(&mut renderer, &mut sim.context);
+        let mut audio: Box<dyn AudioManager> = self.config.build_audio();
+        Self::upload_sounds(audio.as_mut(), &mut sim.context);
 
-        self.state = AppState::Running(Box::new(RunningState { renderer, window, sim }));
+        self.state = AppState::Running(Box::new(RunningState {
+            renderer,
+            window,
+            sim,
+            audio,
+        }));
         Ok(())
     }
 
@@ -281,6 +318,19 @@ impl<G: Game> Runtime<G> {
                     id.index()
                 );
             }
+        }
+    }
+
+    /// Hands every queued sound to the audio backend, which decodes it off
+    /// this thread.
+    ///
+    /// Called at the same two points as [`upload_textures`](Self::upload_textures),
+    /// so a sound requested in a frame is loading before any play of it issued
+    /// in that frame dispatches.
+    fn upload_sounds(audio: &mut dyn AudioManager, context: &mut Context<G::Action>) {
+        for request in context.drain_sound_requests() {
+            let SoundRequest { id, bytes } = request;
+            audio.load_clip(id, bytes);
         }
     }
 
@@ -340,6 +390,7 @@ impl<G: Game> Runtime<G> {
     fn on_app_suspended(&mut self) {
         if let AppState::Running(state) = &mut self.state {
             state.renderer.suspend();
+            state.audio.suspend();
         }
     }
 
@@ -347,6 +398,7 @@ impl<G: Game> Runtime<G> {
         self.is_suspended = false;
 
         let result: Result<(), RedixelError> = if let AppState::Running(state) = &mut self.state {
+            state.audio.resume();
             state.renderer.resume(&state.window.window_arc())
         } else {
             Ok(())
@@ -392,6 +444,7 @@ impl<G: Game> Runtime<G> {
         state.sim.game.on_render(&mut state.sim.context);
 
         Self::upload_textures(&mut state.renderer, &mut state.sim.context);
+        Self::upload_sounds(state.audio.as_mut(), &mut state.sim.context);
 
         for cmd in state.sim.context.drain_commands() {
             match cmd {
@@ -426,7 +479,28 @@ impl<G: Game> Runtime<G> {
             }
         }
 
-        match state.renderer.render() {
+        for cmd in state.sim.context.drain_audio_commands() {
+            match cmd {
+                AudioCommand::PlaySound { clip, volume, pitch } => {
+                    state.audio.play_sound(clip, volume, pitch);
+                }
+                AudioCommand::PlayMusic { clip, options } => {
+                    state.audio.play_music(clip, options);
+                }
+                AudioCommand::StopMusic { fade_out } => {
+                    state.audio.stop_music(fade_out);
+                }
+                AudioCommand::SetMasterVolume(volume) => {
+                    state.audio.set_master_volume(volume);
+                }
+                AudioCommand::SetChannelVolume { channel, volume } => {
+                    state.audio.set_channel_volume(channel, volume);
+                }
+            }
+        }
+        state.audio.update(frame_delta as f32);
+
+        match state.renderer.render(state.sim.time.elapsed_time() as f32) {
             Ok(()) => {}
             Err(RedixelError::SurfaceIgnored) => {}
             Err(RedixelError::SurfaceNeedsReconfiguration) => {
@@ -495,6 +569,42 @@ impl<G: Game> Runtime<G> {
     }
 }
 
+impl<G: Game> Drop for Runtime<G> {
+    /// Writes the volumes back to `config/config.json` if the game changed
+    /// them during the session, so they carry over to the next run.
+    fn drop(&mut self) {
+        if let AppState::Running(state) = &self.state {
+            persist_volumes(self.config.audio.clamped(), state.sim.context.volumes());
+        }
+    }
+}
+
+/// Writes `current` over the `audio` section of the global settings and saves
+/// them, unless it equals `initial`, the volumes the session started with.
+fn persist_volumes(initial: AudioConfig, current: AudioConfig) {
+    if current == initial {
+        return;
+    }
+
+    let mut settings: RwLockWriteGuard<'static, EngineSettings> = EngineSettings::global_write();
+    settings.set_path("audio.master_volume", json_volume(current.master_volume));
+    settings.set_path("audio.sfx_volume", json_volume(current.sfx_volume));
+    settings.set_path("audio.music_volume", json_volume(current.music_volume));
+    drop(settings);
+
+    EngineSettings::save_config_json();
+}
+
+/// `volume` as the `f64` with the same shortest decimal form, so `0.4` is
+/// written as `0.4` rather than as the `0.4000000059604645` a plain widening
+/// cast produces.
+fn json_volume(volume: f32) -> f64 {
+    volume
+        .to_string()
+        .parse()
+        .unwrap_or_else(|_: ParseFloatError| f64::from(volume))
+}
+
 impl<G: Game> ApplicationHandler for Runtime<G> {
     fn can_create_surfaces(&mut self, event_loop: &dyn ActiveEventLoop) {
         match &mut self.state {
@@ -545,10 +655,10 @@ mod tests {
 
     use mpsc::TryRecvError;
 
-    use redixel_core::{GameContext, TextureFilter, TextureId};
+    use redixel_core::{AudioChannel, GameContext, MusicOptions, SoundId, TextureFilter, TextureId, audio::MIN_PITCH};
     use redixel_math::{Color, Vec2};
 
-    use crate::context::TextureRequest;
+    use crate::context::{SoundRequest, TextureRequest};
 
     struct Dummy;
     impl Game for Dummy {
@@ -788,5 +898,137 @@ mod tests {
             }
             other => panic!("expected a single sprite command, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn load_sound_assigns_sequential_ids_and_queues_the_bytes() {
+        let mut ctx: Context<()> = Context::new();
+
+        let first: SoundId = ctx.load_sound(b"first");
+        let second: SoundId = ctx.load_sound(b"second");
+
+        assert_eq!([first.index(), second.index()], [0, 1]);
+
+        let requests: Vec<SoundRequest> = ctx.drain_sound_requests().collect();
+        assert_eq!(requests.len(), 2);
+        assert_eq!(requests[0].id, first);
+        assert_eq!(requests[0].bytes, b"first");
+        assert_eq!(requests[1].bytes, b"second");
+    }
+
+    #[test]
+    fn play_sound_defaults_to_unity_volume_and_pitch() {
+        let mut ctx: Context<()> = Context::new();
+        let id: SoundId = ctx.load_sound(b"sfx");
+
+        ctx.play_sound(id);
+
+        let drained: Vec<AudioCommand> = ctx.drain_audio_commands().collect();
+        match drained.as_slice() {
+            [AudioCommand::PlaySound { clip, volume, pitch }] => {
+                assert_eq!(*clip, id);
+                assert_eq!(*volume, 1.0);
+                assert_eq!(*pitch, 1.0);
+            }
+            other => panic!("expected a single PlaySound command, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn play_music_defaults_loop_with_no_fade() {
+        let mut ctx: Context<()> = Context::new();
+        let id: SoundId = ctx.load_sound(b"music");
+
+        ctx.play_music(id);
+
+        let drained: Vec<AudioCommand> = ctx.drain_audio_commands().collect();
+        match drained.as_slice() {
+            [AudioCommand::PlayMusic { clip, options }] => {
+                assert_eq!(*clip, id);
+                assert_eq!(*options, MusicOptions::default());
+            }
+            other => panic!("expected a single PlayMusic command, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn stop_music_fade_carries_its_duration() {
+        let mut ctx: Context<()> = Context::new();
+        ctx.stop_music_fade(2.5);
+
+        let drained: Vec<AudioCommand> = ctx.drain_audio_commands().collect();
+        assert!(matches!(drained.as_slice(), [AudioCommand::StopMusic { fade_out }] if *fade_out == 2.5));
+    }
+
+    #[test]
+    fn volume_setters_update_the_getters_and_queue_a_command() {
+        let mut ctx: Context<()> = Context::new();
+
+        ctx.set_master_volume(0.4);
+        ctx.set_channel_volume(AudioChannel::Sfx, 0.6);
+        ctx.set_channel_volume(AudioChannel::Music, 0.2);
+
+        assert_eq!(ctx.master_volume(), 0.4);
+        assert_eq!(ctx.channel_volume(AudioChannel::Sfx), 0.6);
+        assert_eq!(ctx.channel_volume(AudioChannel::Music), 0.2);
+        assert_eq!(ctx.drain_audio_commands().count(), 3);
+    }
+
+    #[test]
+    fn audio_values_are_clamped_before_they_are_queued() {
+        let mut ctx: Context<()> = Context::new();
+        let id: SoundId = ctx.load_sound(b"sfx");
+
+        ctx.set_master_volume(f32::NAN);
+        ctx.play_sound_with(id, 4.0, -1.0);
+
+        let drained: Vec<AudioCommand> = ctx.drain_audio_commands().collect();
+        match drained.as_slice() {
+            [
+                AudioCommand::SetMasterVolume(master),
+                AudioCommand::PlaySound { volume, pitch, .. },
+            ] => {
+                assert_eq!(*master, 0.0);
+                assert_eq!(*volume, 1.0);
+                assert_eq!(*pitch, MIN_PITCH);
+            }
+            other => panic!("expected a volume change then a play, got {other:?}"),
+        }
+        assert_eq!(ctx.master_volume(), 0.0);
+    }
+
+    #[test]
+    fn with_audio_starts_from_the_clamped_volumes() {
+        let ctx: Context<()> = Context::new().with_audio(AudioConfig {
+            master_volume: 0.5,
+            sfx_volume: 2.0,
+            music_volume: 0.25,
+        });
+
+        assert_eq!(ctx.master_volume(), 0.5);
+        assert_eq!(ctx.channel_volume(AudioChannel::Sfx), 1.0);
+        assert_eq!(ctx.channel_volume(AudioChannel::Music), 0.25);
+    }
+
+    #[test]
+    fn json_volume_keeps_the_shortest_decimal_form() {
+        assert_eq!(serde_json::to_string(&json_volume(0.4)).unwrap(), "0.4");
+        assert_eq!(serde_json::to_string(&json_volume(1.0)).unwrap(), "1.0");
+    }
+
+    #[test]
+    fn reset_frame_clears_audio_queues_too() {
+        let mut ctx: Context<()> = Context::new();
+        let id: SoundId = ctx.load_sound(b"never drained");
+        ctx.play_sound(id);
+
+        ctx.reset_frame();
+
+        assert_eq!(
+            ctx.drain_sound_requests().count(),
+            0,
+            "headless never drains sound requests either; without this it grows forever"
+        );
+        assert_eq!(ctx.drain_audio_commands().count(), 0);
     }
 }

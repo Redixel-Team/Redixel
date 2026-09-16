@@ -1,3 +1,5 @@
+use std::num::NonZeroU64;
+
 use wgpu::{
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry,
     BindingResource, BindingType, BlendState, Buffer, BufferBindingType, BufferDescriptor, BufferUsages,
@@ -45,34 +47,43 @@ impl Vertex {
     }
 }
 
-/// The uniform buffer fed to `group(0) binding(0)` in the shader.
-/// Contains a column-major 4×4 projection matrix.
+/// Everything the vertex shader reads from `group(0) binding(0)`: the two
+/// column-major 4×4 camera matrices, plus the per-frame globals `resolution`
+/// and `time` a future effect may need without a layout change.
+///
+/// The field order is the memory layout WGSL expects, so it is not free to
+/// change: matrices align to 16 bytes and sit first, `resolution` is a
+/// `vec2<f32>` (8-byte aligned, unlike a `vec3` which would align to 16 and need
+/// padding of its own), and `time` plus `_padding` close the struct at 144
+/// bytes — a multiple of the 16-byte struct alignment WGSL imposes on a struct
+/// containing a `mat4x4`. Leaving that padding implicit is what lets the Rust
+/// and WGSL layouts silently drift apart, so it is spelled out here instead.
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct CameraUniform {
+pub struct GlobalUniforms {
+    pub view: [[f32; 4]; 4],
     pub projection: [[f32; 4]; 4],
+    pub resolution: [f32; 2],
+    pub time: f32,
+    pub _padding: f32,
 }
 
-impl CameraUniform {
-    pub fn from_mat4(m: [[f32; 4]; 4]) -> Self {
-        Self { projection: m }
-    }
-}
-
-/// A camera's uniform buffer paired with the bind group that exposes it.
+/// A uniform buffer paired with the bind group that exposes it.
 ///
-/// The 2D and 3D cameras differ only in the matrix they carry, so both are
-/// built from this type against the same layout.
-pub struct Camera {
+/// The 2D and 3D paths differ only in the matrices they carry, so both are
+/// built from this type against the same layout, and each owns a full copy of
+/// the frame globals: one buffer is bound per pass, so the values a pass reads
+/// have to live in the block it binds.
+pub struct UniformBlock {
     pub buffer: Buffer,
     pub bind_group: BindGroup,
 }
 
-impl Camera {
+impl UniformBlock {
     fn new(device: &Device, layout: &BindGroupLayout, buffer_label: &str, group_label: &str) -> Self {
         let buffer: Buffer = device.create_buffer(&BufferDescriptor {
             label: Some(buffer_label),
-            size: std::mem::size_of::<CameraUniform>() as u64,
+            size: std::mem::size_of::<GlobalUniforms>() as u64,
             usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -89,14 +100,13 @@ impl Camera {
         Self { buffer, bind_group }
     }
 
-    /// Uploads `projection` to this camera's uniform buffer.
-    pub fn update(&self, queue: &Queue, projection: [[f32; 4]; 4]) {
-        let uniform: CameraUniform = CameraUniform::from_mat4(projection);
-        queue.write_buffer(&self.buffer, 0, bytemuck::bytes_of(&uniform));
+    /// Uploads `uniforms` to this block's buffer.
+    pub fn update(&self, queue: &Queue, uniforms: &GlobalUniforms) {
+        queue.write_buffer(&self.buffer, 0, bytemuck::bytes_of(uniforms));
     }
 }
 
-/// Owns the two render pipelines that draw shapes, and the camera uniform each
+/// Owns the two render pipelines that draw shapes, and the global uniforms each
 /// one reads.
 ///
 /// Both run the same shader over the same vertex layout, differing only in how
@@ -110,11 +120,21 @@ pub struct ShapePipeline {
     pub pipeline_2d: RenderPipeline,
     pub pipeline_3d: RenderPipeline,
     pub bind_group_layout: BindGroupLayout,
-    pub camera_2d: Camera,
-    pub camera_3d: Camera,
+    pub globals_2d: UniformBlock,
+    pub globals_3d: UniformBlock,
 }
 
 impl ShapePipeline {
+    /// Group 0 is visible only to the vertex stage, the only one that reads
+    /// `globals` — it transforms by `projection * view`; the fragment stage
+    /// samples the sprite texture and nothing else.
+    ///
+    /// The layout pins `min_binding_size` to the size of [`GlobalUniforms`],
+    /// which fails pipeline creation if the WGSL struct outgrows the Rust one.
+    /// It is a floor, not an equality check: wgpu only rejects a binding
+    /// smaller than the shader needs, so a Rust struct that grows or reorders
+    /// its fields still binds cleanly and the shader reads the wrong offsets.
+    /// Any edit here belongs in `shape.wgsl` in the same commit.
     pub fn new(device: &Device, surface_format: TextureFormat, texture_layout: &BindGroupLayout) -> Self {
         let shader: ShaderModule = device.create_shader_module(ShaderModuleDescriptor {
             label: Some("REDIXEL_SHAPE_SHADER"),
@@ -122,31 +142,31 @@ impl ShapePipeline {
         });
 
         let bind_group_layout: BindGroupLayout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            label: Some("REDIXEL_CAMERA_BIND_GROUP_LAYOUT"),
+            label: Some("REDIXEL_GLOBALS_BIND_GROUP_LAYOUT"),
             entries: &[BindGroupLayoutEntry {
                 binding: 0,
                 visibility: ShaderStages::VERTEX,
                 ty: BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
                     has_dynamic_offset: false,
-                    min_binding_size: None,
+                    min_binding_size: NonZeroU64::new(std::mem::size_of::<GlobalUniforms>() as u64),
                 },
                 count: None,
             }],
         });
 
-        let camera_2d: Camera = Camera::new(
+        let globals_2d: UniformBlock = UniformBlock::new(
             device,
             &bind_group_layout,
-            "REDIXEL_CAMERA_BUFFER_2D",
-            "REDIXEL_CAMERA_BIND_GROUP_2D",
+            "REDIXEL_GLOBALS_BUFFER_2D",
+            "REDIXEL_GLOBALS_BIND_GROUP_2D",
         );
 
-        let camera_3d: Camera = Camera::new(
+        let globals_3d: UniformBlock = UniformBlock::new(
             device,
             &bind_group_layout,
-            "REDIXEL_CAMERA_BUFFER_3D",
-            "REDIXEL_CAMERA_BIND_GROUP_3D",
+            "REDIXEL_GLOBALS_BUFFER_3D",
+            "REDIXEL_GLOBALS_BIND_GROUP_3D",
         );
 
         let pipeline_layout: PipelineLayout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
@@ -177,8 +197,8 @@ impl ShapePipeline {
             pipeline_2d,
             pipeline_3d,
             bind_group_layout,
-            camera_2d,
-            camera_3d,
+            globals_2d,
+            globals_3d,
         }
     }
 

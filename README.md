@@ -16,6 +16,7 @@ Redixel is built on top of the modern Rust ecosystem, prioritizing safety and cr
 | **Windowing**    | Winit                                   | Event loop management and low-level platform abstraction.                                                                                                                                                     |
 | **Graphics**     | WGPU                                    | Portable graphics API targeting Vulkan, Metal, DX12, and WebGL/WebGPU.                                                                                                                                        |
 | **Networking**   | WebTransport (`wtransport` / `web-sys`) | QUIC/HTTP-3 transport unifying reliable and unreliable delivery on one encrypted connection — native via `wtransport`, browser via `web-sys`'s `WebTransport` bindings, both speaking the same wire protocol. |
+| **Audio**        | `cpal` + `symphonia` / Web Audio API    | Sound effects and looping music decoded from WAV and OGG Vorbis — native via `cpal` for output and `symphonia` for decoding, mixed by the engine, browser via `web-sys`'s Web Audio API bindings.             |
 | **Build System** | Cargo                                   | Standard Rust package manager and build tool.                                                                                                                                                                 |
 
 ## Getting Started
@@ -39,6 +40,16 @@ Before you can build and run the project, you'll need to have the Rust compiler 
    ```
 
 > This should output the installed version of the Rust compiler.
+
+> **Linux only:** with the `audio` feature enabled (the `Shooter` game enables it), the native audio backend links against ALSA, so install its development headers before building:
+>
+> ```sh
+> # Debian/Ubuntu
+> sudo apt-get install libasound2-dev
+>
+> # Fedora
+> sudo dnf install alsa-lib-devel
+> ```
 
 ### Running Native (Windows/Linux/macOS)
 
@@ -287,6 +298,7 @@ redixel/
 │   ├── redixel-renderer/       # Wgpu: GPU device, render pass, commands
 │   ├── redixel-runtime/        # Loop, AppState, TimeManager, Settings
 │   ├── redixel-net/            # NetworkManager transports (WebTransport, loopback)
+│   ├── redixel-audio/          # AudioManager backends (cpal+symphonia, Web Audio API)
 │   └── redixel/                # Public facade API (pub use ...)
 └── examples/
     ├── pong/                   # Classic 2D game demonstrating input and physics

@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Core:** `GameContext` gains `elapsed_time` as a required method with no default body. Breaking for any out-of-tree implementor of the trait.
 - **Renderer:** `CameraUniform`/`Camera` replaced by `GlobalUniforms`/`UniformBlock` (`camera_2d`/`camera_3d` → `globals_2d`/`globals_3d`) — the block is no longer only a camera. Breaking for direct `redixel-renderer` consumers.
 - **Renderer:** the vertex shader transforms by `projection * view`; `view` is the identity today, so output is unchanged — the multiply is the seam a camera system (planned) slots into.
+- **Docs:** the README is trimmed to an overview that links out to new guides under `docs/` (getting started, web, Android, iOS, multiplayer, architecture), and it describes the engine as 2D & 3D. The ROADMAP now matches the code: shipped vertex buffers, uniforms, and batching are checked, 3D rendering and platforms have phases of their own, and items link to their stories.
 
 ## [0.5.0]
 

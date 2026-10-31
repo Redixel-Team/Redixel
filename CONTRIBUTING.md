@@ -145,6 +145,12 @@ All changes must go through a Pull Request (PR).
 
 - **Requirement:** You must update the `CHANGELOG.md` file for every substantive change.
 - Add a line describing your change under the section corresponding to the **current relevant version**.
+- **Write for the people upgrading**, not the people reviewing:
+  - One bullet per change, led by its area (`**Renderer:**`, `**Core:**`, ...) and the item's name. Aim for one sentence, about 25 words; add a second only for something a user must know, such as a cost or a caveat.
+  - Say what changed and what it means for a game, not how it works inside. Internal design, data structures and the reasoning behind them belong in doc comments, `docs/architecture.md` or the PR.
+  - A breaking change goes under **Changed** and ends with who it breaks (`Breaking for out-of-tree implementors.`).
+  - A fix states the symptom users saw and what happens now, not the investigation.
+  - Group related items as sub-bullets instead of one long sentence.
 
 ### 4\. Pull Request (PR) Process
 

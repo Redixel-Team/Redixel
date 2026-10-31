@@ -18,12 +18,15 @@ title = "Shooter"
 description = "A high-octane twin-stick arena shooter demonstrating manual entity management, collision handling, and a custom particle engine."
 tags = ["Physics", "Particles", "Top-Down"]
 
+[package.metadata.android.sdk]
+min_sdk_version = 26
+
 [lib]
 crate-type = ["cdylib", "staticlib", "rlib"]
 
 [dependencies]
 # Internal crates
-redixel = { path = "../../crates/redixel" }
+redixel = { path = "../../crates/redixel", features = ["audio"] }
 
 # External crates
 log = "0.4"

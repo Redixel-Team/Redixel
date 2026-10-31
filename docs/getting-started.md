@@ -20,6 +20,16 @@ Before you can build and run the project, you'll need to have the Rust compiler 
 
 > This should output the installed version of the Rust compiler.
 
+> **Linux only:** with the `audio` feature enabled (the `Shooter` game enables it), the native audio backend links against ALSA, so install its development headers before building:
+>
+> ```sh
+> # Debian/Ubuntu
+> sudo apt-get install libasound2-dev
+>
+> # Fedora
+> sudo dnf install alsa-lib-devel
+> ```
+
 ## Running Native (Windows/Linux/macOS)
 
 To run the engine and the included `Shooter` game natively on your local machine:

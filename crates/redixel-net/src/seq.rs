@@ -27,8 +27,8 @@ pub const MAX_MESSAGE_LEN: usize = 1024 * 1024;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Plan<'a> {
     payload: &'a [u8],
-    chunk: usize,
-    count: u16,
+    chunk:   usize,
+    count:   u16,
 }
 
 impl<'a> Plan<'a> {
@@ -188,9 +188,9 @@ pub fn split(msg: &[u8]) -> Option<(u32, u16, u16, &[u8])> {
 /// wire, so a peer must not be able to size our allocations for us.
 #[derive(Debug, Default)]
 pub struct Reassembler {
-    seq: Option<u32>,
-    parts: Vec<Option<Vec<u8>>>,
-    remaining: usize,
+    seq:          Option<u32>,
+    parts:        Vec<Option<Vec<u8>>>,
+    remaining:    usize,
     received_len: usize,
 }
 

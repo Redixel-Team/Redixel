@@ -6,7 +6,7 @@ const MIN_DEPTH_RATIO: f32 = 1.0001;
 /// A 4×4 column-major matrix used for coordinate transforms.
 ///
 /// Stored as `cols[col][row]` — identical to WGSL's `mat4x4<f32>` memory layout,
-/// so it can be copied directly into a uniform buffer with `bytemuck`.
+/// so `cols` can be uploaded to a uniform buffer as-is.
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Mat4 {
@@ -109,7 +109,7 @@ impl Mat4 {
         m
     }
 
-    /// Returns a uniform scale matrix.
+    /// Returns a scale matrix with an independent factor per axis.
     pub fn scale(sx: f32, sy: f32, sz: f32) -> Self {
         let mut m: Mat4 = Self::IDENTITY;
         m.cols[0][0] = sx;
@@ -196,7 +196,12 @@ mod tests {
     fn scale_and_translate_compose() {
         let t: Mat4 = Mat4::translate(5.0, 3.0, 0.0);
         let s: Mat4 = Mat4::scale(2.0, 2.0, 1.0);
-        let _m: Mat4 = t * s;
+        let m: Mat4 = t * s;
+
+        // Scale first, then translate: (1, 1) → (2, 2) → (7, 5).
+        let c: [[f32; 4]; 4] = m.cols;
+        let (x, y): (f32, f32) = (c[0][0] + c[1][0] + c[3][0], c[0][1] + c[1][1] + c[3][1]);
+        assert!((x - 7.0).abs() < EPS && (y - 5.0).abs() < EPS, "got ({x}, {y})");
     }
 
     #[test]

@@ -16,9 +16,9 @@ pub(crate) enum StepFlow {
 /// windowed [`Runtime`](crate::runtime::Runtime) and the
 /// [`HeadlessRuntime`](crate::runtime::HeadlessRuntime).
 pub(crate) struct SimulationCore<G: Game> {
-    pub(crate) time: TimeManager,
+    pub(crate) time:    TimeManager,
     pub(crate) context: Context<G::Action>,
-    pub(crate) game: G,
+    pub(crate) game:    G,
 }
 
 impl<G: Game> SimulationCore<G> {

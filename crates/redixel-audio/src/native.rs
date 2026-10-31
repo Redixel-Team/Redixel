@@ -19,6 +19,10 @@ use std::{
 };
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+use redixel_core::{
+    AudioChannel, AudioConfig, AudioManager, ClipState, MusicOptions, RedixelError, SoundId,
+    audio::{clamp_fade, clamp_pitch, clamp_volume},
+};
 use rtrb::{Consumer, Producer, RingBuffer};
 use symphonia::core::{
     audio::{AudioSpec, GenericAudioBufferRef},
@@ -30,11 +34,6 @@ use symphonia::core::{
     formats::{FormatOptions, FormatReader, Track, TrackType, probe::Hint},
     io::{MediaSource, MediaSourceStream, MediaSourceStreamOptions},
     meta::MetadataOptions,
-};
-
-use redixel_core::{
-    AudioChannel, AudioConfig, AudioManager, ClipState, MusicOptions, RedixelError, SoundId,
-    audio::{clamp_fade, clamp_pitch, clamp_volume},
 };
 
 use crate::{
@@ -66,7 +65,7 @@ type DecodeResult = (SoundId, Result<DecodedClip, RedixelError>);
 /// A clip decoded in full: interleaved samples, `channels` per frame, at the
 /// output stream's sample rate.
 struct DecodedClip {
-    samples: Box<[f32]>,
+    samples:  Box<[f32]>,
     channels: usize,
 }
 
@@ -217,24 +216,24 @@ fn spawn_decoder(sample_rate: u32) -> Result<(Sender<DecodeRequest>, Receiver<De
 /// output callback without locking.
 struct SharedVolumes {
     master: AtomicU32,
-    sfx: AtomicU32,
-    music: AtomicU32,
+    sfx:    AtomicU32,
+    music:  AtomicU32,
 }
 
 impl SharedVolumes {
     fn new(volumes: AudioConfig) -> Self {
         Self {
             master: AtomicU32::new(volumes.master_volume.to_bits()),
-            sfx: AtomicU32::new(volumes.sfx_volume.to_bits()),
-            music: AtomicU32::new(volumes.music_volume.to_bits()),
+            sfx:    AtomicU32::new(volumes.sfx_volume.to_bits()),
+            music:  AtomicU32::new(volumes.music_volume.to_bits()),
         }
     }
 
     fn load(&self) -> AudioConfig {
         AudioConfig {
             master_volume: f32::from_bits(self.master.load(Ordering::Relaxed)),
-            sfx_volume: f32::from_bits(self.sfx.load(Ordering::Relaxed)),
-            music_volume: f32::from_bits(self.music.load(Ordering::Relaxed)),
+            sfx_volume:    f32::from_bits(self.sfx.load(Ordering::Relaxed)),
+            music_volume:  f32::from_bits(self.music.load(Ordering::Relaxed)),
         }
     }
 
@@ -263,11 +262,11 @@ enum FadeEnd {
 
 /// A linear volume ramp from `from` to `to` over `frames` output frames.
 struct Fade {
-    from: f32,
-    to: f32,
+    from:    f32,
+    to:      f32,
     elapsed: u64,
-    frames: u64,
-    end: FadeEnd,
+    frames:  u64,
+    end:     FadeEnd,
 }
 
 impl Fade {
@@ -301,13 +300,13 @@ impl Fade {
 /// through the clip between frames. `volume` is the voice's gain whenever no
 /// `fade` is running.
 struct Voice {
-    clip: Arc<DecodedClip>,
-    channel: AudioChannel,
+    clip:     Arc<DecodedClip>,
+    channel:  AudioChannel,
     position: f64,
-    pitch: f64,
-    volume: f32,
-    looped: bool,
-    fade: Option<Fade>,
+    pitch:    f64,
+    volume:   f32,
+    looped:   bool,
+    fade:     Option<Fade>,
 }
 
 impl Voice {
@@ -367,12 +366,12 @@ impl Voice {
 /// registry.
 enum MixerCommand {
     PlaySound {
-        clip: Arc<DecodedClip>,
+        clip:   Arc<DecodedClip>,
         volume: f32,
-        pitch: f32,
+        pitch:  f32,
     },
     PlayMusic {
-        clip: Arc<DecodedClip>,
+        clip:    Arc<DecodedClip>,
         options: MusicOptions,
     },
     StopMusic {
@@ -492,12 +491,12 @@ fn mix_into(voices: &mut Vec<Voice>, volumes: AudioConfig, out_channels: usize, 
 
 /// Everything `cpal`'s output callback owns.
 struct Mixer {
-    commands: Consumer<MixerCommand>,
-    volumes: Arc<SharedVolumes>,
-    voices: Vec<Voice>,
-    scratch: Vec<f32>,
+    commands:    Consumer<MixerCommand>,
+    volumes:     Arc<SharedVolumes>,
+    voices:      Vec<Voice>,
+    scratch:     Vec<f32>,
     sample_rate: u32,
-    channels: usize,
+    channels:    usize,
 }
 
 impl Mixer {
@@ -542,13 +541,13 @@ fn device_error(error: cpal::Error) -> RedixelError {
 
 /// The native [`AudioManager`], playing through the default output device.
 pub struct NativeAudioManager {
-    stream: cpal::Stream,
-    commands: Producer<MixerCommand>,
-    volumes: Arc<SharedVolumes>,
+    stream:          cpal::Stream,
+    commands:        Producer<MixerCommand>,
+    volumes:         Arc<SharedVolumes>,
     decode_requests: Sender<DecodeRequest>,
-    decode_results: Receiver<DecodeResult>,
-    clips: ClipRegistry<Arc<DecodedClip>>,
-    pending: PendingPlays,
+    decode_results:  Receiver<DecodeResult>,
+    clips:           ClipRegistry<Arc<DecodedClip>>,
+    pending:         PendingPlays,
 }
 
 impl NativeAudioManager {
@@ -908,8 +907,8 @@ mod tests {
 
         let volumes: AudioConfig = AudioConfig {
             master_volume: 0.5,
-            sfx_volume: 0.5,
-            music_volume: 1.0,
+            sfx_volume:    0.5,
+            music_volume:  1.0,
         };
         let mut out: Vec<f32> = vec![0.0; 1];
         mix_into(&mut voices, volumes, 1, &mut out);
@@ -958,12 +957,12 @@ mod tests {
     fn render_clamps_an_overdriven_mix() {
         let (mut producer, consumer): (Producer<MixerCommand>, Consumer<MixerCommand>) = RingBuffer::new(4);
         let mut mixer: Mixer = Mixer {
-            commands: consumer,
-            volumes: Arc::new(SharedVolumes::new(AudioConfig::default())),
-            voices: Vec::new(),
-            scratch: Vec::new(),
+            commands:    consumer,
+            volumes:     Arc::new(SharedVolumes::new(AudioConfig::default())),
+            voices:      Vec::new(),
+            scratch:     Vec::new(),
             sample_rate: SAMPLE_RATE,
-            channels: 1,
+            channels:    1,
         };
 
         for _ in 0..3 {

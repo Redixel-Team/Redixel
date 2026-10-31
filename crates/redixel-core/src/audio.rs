@@ -94,8 +94,8 @@ pub enum ClipState {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct AudioConfig {
     pub master_volume: f32,
-    pub sfx_volume: f32,
-    pub music_volume: f32,
+    pub sfx_volume:    f32,
+    pub music_volume:  f32,
 }
 
 impl AudioConfig {
@@ -103,8 +103,8 @@ impl AudioConfig {
     pub fn clamped(self) -> Self {
         Self {
             master_volume: clamp_volume(self.master_volume),
-            sfx_volume: clamp_volume(self.sfx_volume),
-            music_volume: clamp_volume(self.music_volume),
+            sfx_volume:    clamp_volume(self.sfx_volume),
+            music_volume:  clamp_volume(self.music_volume),
         }
     }
 
@@ -129,8 +129,8 @@ impl Default for AudioConfig {
     fn default() -> Self {
         Self {
             master_volume: 1.0,
-            sfx_volume: 1.0,
-            music_volume: 1.0,
+            sfx_volume:    1.0,
+            music_volume:  1.0,
         }
     }
 }
@@ -148,10 +148,10 @@ impl Default for AudioConfig {
 /// - `looped`: whether the track restarts from the beginning when it ends.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MusicOptions {
-    pub volume: f32,
-    pub fade_in: f32,
+    pub volume:            f32,
+    pub fade_in:           f32,
     pub fade_out_previous: f32,
-    pub looped: bool,
+    pub looped:            bool,
 }
 
 impl MusicOptions {
@@ -159,10 +159,10 @@ impl MusicOptions {
     /// through [`clamp_fade`].
     pub fn clamped(self) -> Self {
         Self {
-            volume: clamp_volume(self.volume),
-            fade_in: clamp_fade(self.fade_in),
+            volume:            clamp_volume(self.volume),
+            fade_in:           clamp_fade(self.fade_in),
             fade_out_previous: clamp_fade(self.fade_out_previous),
-            looped: self.looped,
+            looped:            self.looped,
         }
     }
 }
@@ -170,10 +170,10 @@ impl MusicOptions {
 impl Default for MusicOptions {
     fn default() -> Self {
         Self {
-            volume: 1.0,
-            fade_in: 0.0,
+            volume:            1.0,
+            fade_in:           0.0,
             fade_out_previous: 0.0,
-            looped: true,
+            looped:            true,
         }
     }
 }
@@ -331,8 +331,8 @@ mod tests {
     fn noop_audio_starts_from_the_clamped_config() {
         let audio: NoOpAudio = NoOpAudio::new(AudioConfig {
             master_volume: 0.5,
-            sfx_volume: 3.0,
-            music_volume: f32::NAN,
+            sfx_volume:    3.0,
+            music_volume:  f32::NAN,
         });
 
         assert_eq!(audio.master_volume(), 0.5);
@@ -402,10 +402,10 @@ mod tests {
     #[test]
     fn music_options_clamped_sanitizes_volume_and_fades() {
         let options: MusicOptions = MusicOptions {
-            volume: 2.0,
-            fade_in: -1.0,
+            volume:            2.0,
+            fade_in:           -1.0,
             fade_out_previous: f32::NAN,
-            looped: false,
+            looped:            false,
         }
         .clamped();
 

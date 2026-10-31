@@ -36,7 +36,7 @@ pub enum CertSource {
     SelfSigned,
     Pem {
         cert: PathBuf,
-        key: PathBuf,
+        key:  PathBuf,
     },
 }
 
@@ -58,11 +58,11 @@ pub enum CertSource {
 ///   self-signed cert); native and mobile clients ignore this field entirely.
 #[derive(Debug, Clone)]
 pub struct NetConfig {
-    pub mode: NetMode,
-    pub max_clients: usize,
-    pub protocol_id: u64,
-    pub cert: CertSource,
-    pub server_name: Option<String>,
+    pub mode:             NetMode,
+    pub max_clients:      usize,
+    pub protocol_id:      u64,
+    pub cert:             CertSource,
+    pub server_name:      Option<String>,
     pub server_cert_hash: Option<[u8; 32]>,
 }
 
@@ -70,11 +70,11 @@ impl NetConfig {
     /// A server bound to `bind` with sensible defaults.
     pub fn server(bind: SocketAddr) -> Self {
         Self {
-            mode: NetMode::Server { bind },
-            max_clients: 64,
-            protocol_id: DEFAULT_PROTOCOL_ID,
-            cert: CertSource::default(),
-            server_name: None,
+            mode:             NetMode::Server { bind },
+            max_clients:      64,
+            protocol_id:      DEFAULT_PROTOCOL_ID,
+            cert:             CertSource::default(),
+            server_name:      None,
             server_cert_hash: None,
         }
     }
@@ -82,11 +82,11 @@ impl NetConfig {
     /// A client connecting to `connect` with sensible defaults.
     pub fn client(connect: SocketAddr) -> Self {
         Self {
-            mode: NetMode::Client { connect },
-            max_clients: 1,
-            protocol_id: DEFAULT_PROTOCOL_ID,
-            cert: CertSource::default(),
-            server_name: None,
+            mode:             NetMode::Client { connect },
+            max_clients:      1,
+            protocol_id:      DEFAULT_PROTOCOL_ID,
+            cert:             CertSource::default(),
+            server_name:      None,
             server_cert_hash: None,
         }
     }

@@ -1,6 +1,6 @@
 [package]
 name = "fps-bench"
-description = "Internal CI tool: renders a fixed synthetic scene and reports average FPS per scene complexity tier."
+description = "Internal CI tool: renders a fixed synthetic scene and reports median FPS, frame times and allocations per scene complexity tier."
 version.workspace = true
 edition.workspace = true
 license.workspace = true

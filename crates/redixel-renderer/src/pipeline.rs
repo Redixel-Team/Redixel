@@ -27,8 +27,8 @@ const SHADER_SRC: &str = include_str!("../shaders/shape.wgsl");
 #[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Vertex {
     pub position: [f32; 3],
-    pub color: [f32; 4],
-    pub uv: [f32; 2],
+    pub color:    [f32; 4],
+    pub uv:       [f32; 2],
 }
 
 impl Vertex {
@@ -41,15 +41,16 @@ impl Vertex {
     pub fn layout() -> VertexBufferLayout<'static> {
         VertexBufferLayout {
             array_stride: std::mem::size_of::<Self>() as u64,
-            step_mode: VertexStepMode::Vertex,
-            attributes: &Self::ATTRIBUTES,
+            step_mode:    VertexStepMode::Vertex,
+            attributes:   &Self::ATTRIBUTES,
         }
     }
 }
 
 /// Everything the vertex shader reads from `group(0) binding(0)`: the two
 /// column-major 4×4 camera matrices, plus the per-frame globals `resolution`
-/// and `time` a future effect may need without a layout change.
+/// and `time`. The group is visible to the vertex stage only, so a fragment
+/// effect reading them needs its visibility widened in [`ShapePipeline::new`].
 ///
 /// The field order is the memory layout WGSL expects, so it is not free to
 /// change: matrices align to 16 bytes and sit first, `resolution` is a
@@ -61,11 +62,11 @@ impl Vertex {
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct GlobalUniforms {
-    pub view: [[f32; 4]; 4],
+    pub view:       [[f32; 4]; 4],
     pub projection: [[f32; 4]; 4],
     pub resolution: [f32; 2],
-    pub time: f32,
-    pub _padding: f32,
+    pub time:       f32,
+    pub _padding:   f32,
 }
 
 /// A uniform buffer paired with the bind group that exposes it.
@@ -75,16 +76,16 @@ pub struct GlobalUniforms {
 /// the frame globals: one buffer is bound per pass, so the values a pass reads
 /// have to live in the block it binds.
 pub struct UniformBlock {
-    pub buffer: Buffer,
+    pub buffer:     Buffer,
     pub bind_group: BindGroup,
 }
 
 impl UniformBlock {
     fn new(device: &Device, layout: &BindGroupLayout, buffer_label: &str, group_label: &str) -> Self {
         let buffer: Buffer = device.create_buffer(&BufferDescriptor {
-            label: Some(buffer_label),
-            size: std::mem::size_of::<GlobalUniforms>() as u64,
-            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+            label:              Some(buffer_label),
+            size:               std::mem::size_of::<GlobalUniforms>() as u64,
+            usage:              BufferUsages::UNIFORM | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
 
@@ -92,7 +93,7 @@ impl UniformBlock {
             label: Some(group_label),
             layout,
             entries: &[BindGroupEntry {
-                binding: 0,
+                binding:  0,
                 resource: BindingResource::Buffer(buffer.as_entire_buffer_binding()),
             }],
         });
@@ -117,11 +118,11 @@ impl UniformBlock {
 ///
 /// [`TextureRegistry`]: crate::texture::TextureRegistry
 pub struct ShapePipeline {
-    pub pipeline_2d: RenderPipeline,
-    pub pipeline_3d: RenderPipeline,
+    pub pipeline_2d:       RenderPipeline,
+    pub pipeline_3d:       RenderPipeline,
     pub bind_group_layout: BindGroupLayout,
-    pub globals_2d: UniformBlock,
-    pub globals_3d: UniformBlock,
+    pub globals_2d:        UniformBlock,
+    pub globals_3d:        UniformBlock,
 }
 
 impl ShapePipeline {
@@ -137,21 +138,21 @@ impl ShapePipeline {
     /// Any edit here belongs in `shape.wgsl` in the same commit.
     pub fn new(device: &Device, surface_format: TextureFormat, texture_layout: &BindGroupLayout) -> Self {
         let shader: ShaderModule = device.create_shader_module(ShaderModuleDescriptor {
-            label: Some("REDIXEL_SHAPE_SHADER"),
+            label:  Some("REDIXEL_SHAPE_SHADER"),
             source: ShaderSource::Wgsl(SHADER_SRC.into()),
         });
 
         let bind_group_layout: BindGroupLayout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            label: Some("REDIXEL_GLOBALS_BIND_GROUP_LAYOUT"),
+            label:   Some("REDIXEL_GLOBALS_BIND_GROUP_LAYOUT"),
             entries: &[BindGroupLayoutEntry {
-                binding: 0,
+                binding:    0,
                 visibility: ShaderStages::VERTEX,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Uniform,
+                ty:         BindingType::Buffer {
+                    ty:                 BufferBindingType::Uniform,
                     has_dynamic_offset: false,
-                    min_binding_size: NonZeroU64::new(std::mem::size_of::<GlobalUniforms>() as u64),
+                    min_binding_size:   NonZeroU64::new(std::mem::size_of::<GlobalUniforms>() as u64),
                 },
-                count: None,
+                count:      None,
             }],
         });
 
@@ -208,11 +209,11 @@ impl ShapePipeline {
     /// submission order instead of the second surface failing its own test.
     fn depth_3d() -> DepthStencilState {
         DepthStencilState {
-            format: DEPTH_FORMAT,
+            format:              DEPTH_FORMAT,
             depth_write_enabled: Some(true),
-            depth_compare: Some(CompareFunction::LessEqual),
-            stencil: StencilState::default(),
-            bias: DepthBiasState::default(),
+            depth_compare:       Some(CompareFunction::LessEqual),
+            stencil:             StencilState::default(),
+            bias:                DepthBiasState::default(),
         }
     }
 
@@ -223,11 +224,11 @@ impl ShapePipeline {
     /// occlude the 3D scene behind it.
     fn depth_2d() -> DepthStencilState {
         DepthStencilState {
-            format: DEPTH_FORMAT,
+            format:              DEPTH_FORMAT,
             depth_write_enabled: Some(false),
-            depth_compare: Some(CompareFunction::Always),
-            stencil: StencilState::default(),
-            bias: DepthBiasState::default(),
+            depth_compare:       Some(CompareFunction::Always),
+            stencil:             StencilState::default(),
+            bias:                DepthBiasState::default(),
         }
     }
 
@@ -245,34 +246,34 @@ impl ShapePipeline {
         depth: DepthStencilState,
     ) -> RenderPipeline {
         device.create_render_pipeline(&RenderPipelineDescriptor {
-            label: Some(label),
-            layout: Some(layout),
-            vertex: VertexState {
-                module: shader,
-                entry_point: Some("vs_main"),
-                buffers: &[Some(Vertex::layout())],
+            label:          Some(label),
+            layout:         Some(layout),
+            vertex:         VertexState {
+                module:              shader,
+                entry_point:         Some("vs_main"),
+                buffers:             &[Some(Vertex::layout())],
                 compilation_options: Default::default(),
             },
-            fragment: Some(FragmentState {
-                module: shader,
-                entry_point: Some("fs_main"),
-                targets: &[Some(ColorTargetState {
-                    format: surface_format,
-                    blend: Some(BlendState::ALPHA_BLENDING),
+            fragment:       Some(FragmentState {
+                module:              shader,
+                entry_point:         Some("fs_main"),
+                targets:             &[Some(ColorTargetState {
+                    format:     surface_format,
+                    blend:      Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
                 compilation_options: Default::default(),
             }),
-            primitive: PrimitiveState {
+            primitive:      PrimitiveState {
                 topology: PrimitiveTopology::TriangleList,
                 front_face: FrontFace::Ccw,
                 polygon_mode: PolygonMode::Fill,
                 ..Default::default()
             },
-            depth_stencil: Some(depth),
-            multisample: MultisampleState::default(),
+            depth_stencil:  Some(depth),
+            multisample:    MultisampleState::default(),
             multiview_mask: None,
-            cache: None,
+            cache:          None,
         })
     }
 }

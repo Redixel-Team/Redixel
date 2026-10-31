@@ -1,3 +1,6 @@
+//! Core traits and types shared by every Redixel crate: `Game`, `GameContext`, input actions, the `NetworkManager` and
+//! `AudioManager` traits and `RedixelError`.
+
 pub mod audio;
 pub mod error;
 pub mod game;

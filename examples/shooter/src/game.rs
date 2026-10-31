@@ -18,6 +18,15 @@ const HIT_SFX: &[u8] = include_bytes!("../assets/audio/hit.wav");
 /// Am-F-C-G — that repeats seamlessly as background music.
 const MUSIC: &[u8] = include_bytes!("../assets/audio/music.wav");
 
+/// Seconds between a powerup being picked up and the next one appearing.
+const POWERUP_RESPAWN: f32 = 10.0;
+
+/// How often a dashing agent leaves an after-image behind, in seconds.
+const AFTERIMAGE_INTERVAL: f32 = 0.05;
+
+/// How often each bullet emits a trail particle, in seconds.
+const TRAIL_INTERVAL: f32 = 0.05;
+
 /// The player's input action set, bound to keyboard and mouse in `on_start`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Action {
@@ -32,18 +41,18 @@ pub enum Action {
 
 /// One in-flight projectile, owned by whichever agent fired it.
 struct Bullet {
-    pos: Vec2,
-    vel: Vec2,
-    owner_id: usize,
-    weapon: WeaponType,
-    life: f32,
+    pos:       Vec2,
+    vel:       Vec2,
+    owner_id:  usize,
+    weapon:    WeaponType,
+    life:      f32,
     destroyed: bool,
-    size: f32,
+    size:      f32,
 }
 
 /// The single roaming weapon pickup.
 struct PowerUp {
-    pos: Vec2,
+    pos:    Vec2,
     active: bool,
     weapon: WeaponType,
 }
@@ -51,16 +60,16 @@ struct PowerUp {
 /// Either the player or a bot — both are simulated identically except for how
 /// their aim direction is chosen (see [`Shooter::step_agents`]).
 struct Agent {
-    id: usize,
-    pos: Vec2,
-    vel: Vec2,
-    health: i32,
-    shoot_cooldown: f32,
+    id:               usize,
+    pos:              Vec2,
+    vel:              Vec2,
+    health:           i32,
+    shoot_cooldown:   f32,
     rapid_fire_timer: f32,
-    dash_cooldown: f32,
-    is_player: bool,
-    color: Color,
-    weapon: WeaponType,
+    dash_cooldown:    f32,
+    is_player:        bool,
+    color:            Color,
+    weapon:           WeaponType,
 }
 
 impl Agent {
@@ -110,14 +119,19 @@ impl Agent {
 /// The whole game: simulates every agent/bullet and renders them directly —
 /// there is no client/server split in single-player.
 pub struct Shooter {
-    initialized: bool,
-    agents: Vec<Agent>,
-    bullets: Vec<Bullet>,
-    powerup: PowerUp,
-    fx: Effects,
+    initialized:      bool,
+    agents:           Vec<Agent>,
+    bullets:          Vec<Bullet>,
+    powerup:          PowerUp,
+    fx:               Effects,
     time_since_start: f32,
-    shoot_sfx: Option<SoundId>,
-    hit_sfx: Option<SoundId>,
+    shoot_sfx:        Option<SoundId>,
+    hit_sfx:          Option<SoundId>,
+
+    powerup_respawn:  f32,
+    powerup_cycle:    usize,
+    afterimage_clock: f32,
+    trail_clock:      f32,
 }
 
 impl Shooter {
@@ -138,10 +152,14 @@ impl Shooter {
             bullets: Vec::new(),
             fx: Effects::new(),
             time_since_start: 0.0,
+            powerup_respawn: 0.0,
+            powerup_cycle: 0,
+            afterimage_clock: 0.0,
+            trail_clock: 0.0,
             powerup: PowerUp {
                 active: true,
                 weapon: WeaponType::Shotgun,
-                pos: Vec2::new(0.0, 100.0),
+                pos:    Vec2::new(0.0, 100.0),
             },
             shoot_sfx: None,
             hit_sfx: None,
@@ -242,17 +260,40 @@ impl Shooter {
         self.initialized = true;
     }
 
-    /// Respawns the roaming powerup on a fixed cadence, cycling its weapon.
+    /// Advances `clock` by `dt` and reports whether `interval` elapsed,
+    /// restarting it when it did.
+    fn tick_clock(clock: &mut f32, dt: f32, interval: f32) -> bool {
+        *clock -= dt;
+        if *clock > 0.0 {
+            return false;
+        }
+
+        *clock = interval;
+        true
+    }
+
+    /// Counts down to the next powerup and respawns it, cycling its weapon.
+    ///
+    /// Driven by an explicit countdown rather than `time % PERIOD < dt`, which
+    /// misfires as the clock grows and `f32` steps coarsen.
     fn update_powerup(&mut self, dt: f32, w: f32, h: f32) {
-        if self.powerup.active || self.time_since_start % 10.0 >= dt {
+        if self.powerup.active {
             return;
         }
 
-        self.powerup.active = true;
-        self.powerup.pos = Vec2::new((self.time_since_start * 100.0) % w, (self.time_since_start * 50.0) % h);
+        self.powerup_respawn -= dt;
+        if self.powerup_respawn > 0.0 {
+            return;
+        }
 
-        let weapon_cycle: usize = ((self.time_since_start / 10.0) as usize) % 4;
-        self.powerup.weapon = match weapon_cycle {
+        self.powerup_cycle = self.powerup_cycle.wrapping_add(1);
+        self.powerup.active = true;
+        self.powerup.pos = Vec2::new(
+            (self.time_since_start * 100.0) % (w - POWERUP_SIZE).max(1.0),
+            (self.time_since_start * 50.0) % (h - POWERUP_SIZE).max(1.0),
+        );
+
+        self.powerup.weapon = match self.powerup_cycle % 4 {
             0 => WeaponType::Shotgun,
             1 => WeaponType::Flamethrower,
             2 => WeaponType::Homing,
@@ -260,13 +301,13 @@ impl Shooter {
         };
 
         self.fx.spawn_burst(ParticleProps {
-            pos: self.powerup.pos + Vec2::splat(POWERUP_SIZE / 2.0),
+            pos:   self.powerup.pos + Vec2::splat(POWERUP_SIZE / 2.0),
             color: (255, 255, 255),
             count: 20,
             speed: 150.0,
-            seed: self.time_since_start,
-            life: 0.5,
-            size: 4.0,
+            seed:  self.time_since_start,
+            life:  0.5,
+            size:  4.0,
         });
     }
 
@@ -279,6 +320,8 @@ impl Shooter {
                 player_pos = agent.pos;
             }
         }
+
+        let afterimage_due: bool = Self::tick_clock(&mut self.afterimage_clock, dt, AFTERIMAGE_INTERVAL);
 
         let agents_len: usize = self.agents.len();
         for i in 0..agents_len {
@@ -294,7 +337,7 @@ impl Shooter {
                 }
             }
 
-            if agent.dash_cooldown > 0.8 && (self.time_since_start * 20.0).fract() < (dt * 20.0) {
+            if agent.dash_cooldown > 0.8 && afterimage_due {
                 let (r, g, b): (u8, u8, u8) = if agent.rapid_fire_timer > 0.0 {
                     (255, 229, 122)
                 } else if agent.is_player {
@@ -341,13 +384,13 @@ impl Shooter {
                     };
 
                     self.fx.spawn_burst(ParticleProps {
-                        pos: agent.pos + Vec2::splat(ENTITY_SIZE / 2.0),
+                        pos:   agent.pos + Vec2::splat(ENTITY_SIZE / 2.0),
                         color: particle_color,
                         count: 15,
                         speed: 250.0,
-                        seed: self.time_since_start,
-                        life: 0.4,
-                        size: 6.0,
+                        seed:  self.time_since_start,
+                        life:  0.4,
+                        size:  6.0,
                     });
                 }
 
@@ -449,16 +492,17 @@ impl Shooter {
                 agent.weapon = self.powerup.weapon;
                 agent.rapid_fire_timer = POWERUP_DURATION;
                 self.powerup.active = false;
+                self.powerup_respawn = POWERUP_RESPAWN;
 
                 let (r, g, b): (u8, u8, u8) = get_weapon_color(agent.weapon);
                 self.fx.spawn_burst(ParticleProps {
-                    pos: agent.pos + Vec2::splat(ENTITY_SIZE / 2.0),
+                    pos:   agent.pos + Vec2::splat(ENTITY_SIZE / 2.0),
                     color: (r, g, b),
                     count: 30,
                     speed: 350.0,
-                    seed: self.time_since_start,
-                    life: 0.6,
-                    size: 8.0,
+                    seed:  self.time_since_start,
+                    life:  0.6,
+                    size:  8.0,
                 });
             }
         }
@@ -502,6 +546,7 @@ impl Shooter {
     fn step_bullets(&mut self, dt: f32, w: f32, h: f32) {
         let agents_len: usize = self.agents.len();
         let bullets_len: usize = self.bullets.len();
+        let trail_due: bool = Self::tick_clock(&mut self.trail_clock, dt, TRAIL_INTERVAL);
 
         for i in 0..bullets_len {
             let b: &mut Bullet = &mut self.bullets[i];
@@ -536,15 +581,15 @@ impl Shooter {
 
             let (r, g, b_c): (u8, u8, u8) = get_weapon_color(b.weapon);
 
-            if self.time_since_start % 0.05 < dt {
+            if trail_due {
                 self.fx.spawn_burst(ParticleProps {
-                    pos: b.pos + Vec2::splat(b.size / 2.0),
+                    pos:   b.pos + Vec2::splat(b.size / 2.0),
                     color: (r, g, b_c),
                     count: 1,
                     speed: 20.0,
-                    seed: self.time_since_start + b.pos.x,
-                    life: 0.2,
-                    size: b.size * 0.8,
+                    seed:  self.time_since_start + b.pos.x,
+                    life:  0.2,
+                    size:  b.size * 0.8,
                 });
             }
 
@@ -574,13 +619,13 @@ impl Shooter {
                     agent.vel += self.bullets[i].vel.normalise() * 300.0;
 
                     self.fx.spawn_burst(ParticleProps {
-                        pos: agent.pos + Vec2::splat(ENTITY_SIZE / 2.0),
+                        pos:   agent.pos + Vec2::splat(ENTITY_SIZE / 2.0),
                         color: (255, 122, 122),
                         count: 12,
                         speed: 250.0,
-                        seed: self.time_since_start,
-                        life: 0.4,
-                        size: 6.0,
+                        seed:  self.time_since_start,
+                        life:  0.4,
+                        size:  6.0,
                     });
 
                     if let Some(sound) = self.hit_sfx {
@@ -589,13 +634,13 @@ impl Shooter {
 
                     if agent.health <= 0 {
                         self.fx.spawn_burst(ParticleProps {
-                            pos: agent.pos + Vec2::splat(ENTITY_SIZE / 2.0),
+                            pos:   agent.pos + Vec2::splat(ENTITY_SIZE / 2.0),
                             color: (255, 96, 96),
                             count: 40,
                             speed: 400.0,
-                            seed: self.time_since_start,
-                            life: 0.8,
-                            size: 10.0,
+                            seed:  self.time_since_start,
+                            life:  0.8,
+                            size:  10.0,
                         });
 
                         agent.respawn(w, h);
@@ -634,13 +679,13 @@ impl Shooter {
                         self.bullets[j].destroyed = true;
 
                         self.fx.spawn_burst(ParticleProps {
-                            pos: pos_i + Vec2::splat(size_i / 2.0),
+                            pos:   pos_i + Vec2::splat(size_i / 2.0),
                             color: (255, 255, 168),
                             count: 6,
                             speed: 150.0,
-                            seed: self.time_since_start,
-                            life: 0.3,
-                            size: 4.0,
+                            seed:  self.time_since_start,
+                            life:  0.3,
+                            size:  4.0,
                         });
 
                         break;

@@ -1,6 +1,5 @@
-use winit::{event::MouseButton, keyboard::KeyCode};
-
 use redixel_math::{Color, Vec2, Vec3};
+use winit::{event::MouseButton, keyboard::KeyCode};
 
 use crate::{
     InputAction, InputSource, RedixelError,
@@ -12,8 +11,8 @@ use crate::{
 /// The entry point for user game logic.
 ///
 /// The associated type `Action` is your game's input action enum. The engine
-/// is generic over it — `GameContext` exposes a typed input API with zero
-/// overhead.
+/// is generic over it, so `GameContext` exposes a typed input API: actions are
+/// your own enum values, never strings.
 ///
 /// ```rust,ignore
 /// #[derive(Clone, PartialEq, Eq, Hash)]
@@ -81,8 +80,8 @@ pub trait Game: 'static {
 
 /// The interface through which [`Game`] methods talk to the engine each frame.
 ///
-/// Generic over `A: InputAction` so that `input()` returns a typed view
-/// without any dynamic dispatch or downcasting.
+/// Generic over `A: InputAction` so that `input()` returns a view typed by the
+/// game's own action enum, with no downcasting.
 pub trait GameContext<A: InputAction> {
     /// Requests a clean engine shutdown after the current frame.
     fn exit(&mut self);
@@ -128,7 +127,8 @@ pub trait GameContext<A: InputAction> {
     /// instead of the simulation's.
     fn fixed_alpha(&self) -> f64;
 
-    /// Current FPS measurement.
+    /// Instantaneous FPS, measured from the previous frame alone. The window
+    /// title shows a smoothed average instead.
     fn fps(&self) -> f64;
 
     /// Access the networking transport.
@@ -214,25 +214,26 @@ pub trait GameContext<A: InputAction> {
     #[cfg(not(target_arch = "wasm32"))]
     fn load_sound_file(&mut self, path: &str) -> SoundId;
 
-    /// Sets the background clear colour for this frame.
+    /// Sets the background clear colour. It persists across frames until
+    /// changed again.
     fn clear_color(&mut self, color: Color);
 
     /// Draws a filled triangle.
     ///
-    /// - `p1`, `p2`, `p3` — The three vertices of the triangle in world coordinates
+    /// - `p1`, `p2`, `p3` — the three vertices, in surface pixels (y-down)
     /// - `color`          — fill colour
     fn draw_triangle(&mut self, p1: Vec2, p2: Vec2, p3: Vec2, color: Color);
 
     /// Draws a filled, axis-aligned rectangle.
     ///
-    /// - `position` — top-left corner in world/screen coordinates (y-down)
+    /// - `position` — top-left corner in surface pixels (y-down)
     /// - `size`     — width × height in pixels
     /// - `color`    — fill colour
     fn draw_rect(&mut self, position: Vec2, size: Vec2, color: Color);
 
     /// Draws a texture stretched across an axis-aligned rectangle.
     ///
-    /// - `position` — top-left corner in world/screen coordinates (y-down)
+    /// - `position` — top-left corner in surface pixels (y-down)
     /// - `size`     — width × height in pixels
     /// - `texture`  — a handle from [`load_texture`](Self::load_texture)
     ///

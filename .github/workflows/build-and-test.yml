@@ -22,12 +22,15 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Rust
-        run: rustup show
+        run: |
+          rustup show
+          rustup toolchain install nightly --profile minimal --component rustfmt
 
+      # rustfmt.toml uses nightly-only options (import grouping, field alignment)
       - name: Verify Formatting (rustfmt)
         uses: ./.github/actions/cargo-each
         with:
-          subcommand: fmt
+          subcommand: '+nightly fmt'
           args: '-- --check'
           root-flag: ''
 

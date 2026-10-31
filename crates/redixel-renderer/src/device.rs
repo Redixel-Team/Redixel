@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use redixel_core::RedixelError;
 use wgpu::{
     Adapter, AdapterInfo, BackendOptions, Backends, Device, ExperimentalFeatures, Extent3d, Features, Instance,
     InstanceDescriptor, InstanceFlags, MemoryBudgetThresholds, MemoryHints, PowerPreference, PresentMode, Queue,
@@ -7,10 +8,7 @@ use wgpu::{
     TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView, TextureViewDescriptor, Trace,
     wgt::{DeviceDescriptor, SurfaceConfiguration as WgtSurfaceConfiguration},
 };
-
 use winit::{dpi::PhysicalSize, window::Window};
-
-use redixel_core::RedixelError;
 
 use crate::renderer::RendererConfig;
 
@@ -23,11 +21,11 @@ pub(crate) const DEPTH_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 /// All configurable behaviour is injected via [`RendererConfig`].
 #[derive(Debug)]
 pub(crate) struct GpuDevice {
-    pub(crate) instance: Instance,
-    pub(crate) surface: Option<Surface<'static>>,
-    pub(crate) device: Device,
-    pub(crate) queue: Queue,
-    pub(crate) config: SurfaceConfiguration,
+    pub(crate) instance:   Instance,
+    pub(crate) surface:    Option<Surface<'static>>,
+    pub(crate) device:     Device,
+    pub(crate) queue:      Queue,
+    pub(crate) config:     SurfaceConfiguration,
     pub(crate) depth_view: TextureView,
 }
 
@@ -193,15 +191,14 @@ impl GpuDevice {
             // loop thread. We initialise on a background thread, so we use
             // `window_handle_any_thread` to bypass the guard safely — the `Arc`
             // guarantees the window outlives this call.
-            use wgpu::SurfaceTargetUnsafe;
-            use wgpu::rwh::HasDisplayHandle;
+            use wgpu::{SurfaceTargetUnsafe, rwh::HasDisplayHandle};
             use winit::platform::windows::WindowExtWindows;
 
             unsafe {
                 instance
                     .create_surface_unsafe(SurfaceTargetUnsafe::RawHandle {
                         raw_display_handle: Some(window.display_handle()?.as_raw()),
-                        raw_window_handle: window.window_handle_any_thread()?.as_raw(),
+                        raw_window_handle:  window.window_handle_any_thread()?.as_raw(),
                     })
                     .map_err(RedixelError::from)
             }
@@ -257,11 +254,11 @@ impl GpuDevice {
     async fn request_device(adapter: &Adapter) -> Result<(Device, Queue), RedixelError> {
         adapter
             .request_device(&DeviceDescriptor {
-                label: Some("REDIXEL_DEVICE"),
-                required_features: Features::empty(),
-                required_limits: adapter.limits(),
-                memory_hints: MemoryHints::Performance,
-                trace: Trace::Off,
+                label:                 Some("REDIXEL_DEVICE"),
+                required_features:     Features::empty(),
+                required_limits:       adapter.limits(),
+                memory_hints:          MemoryHints::Performance,
+                trace:                 Trace::Off,
                 experimental_features: ExperimentalFeatures::default(),
             })
             .await
@@ -273,18 +270,18 @@ impl GpuDevice {
     /// alive, and nothing samples or copies the depth buffer.
     fn create_depth_view(device: &Device, width: u32, height: u32) -> TextureView {
         let texture: Texture = device.create_texture(&TextureDescriptor {
-            label: Some("REDIXEL_DEPTH_TEXTURE"),
-            size: Extent3d {
-                width: width.max(1),
-                height: height.max(1),
+            label:           Some("REDIXEL_DEPTH_TEXTURE"),
+            size:            Extent3d {
+                width:                 width.max(1),
+                height:                height.max(1),
                 depth_or_array_layers: 1,
             },
             mip_level_count: 1,
-            sample_count: 1,
-            dimension: TextureDimension::D2,
-            format: DEPTH_FORMAT,
-            usage: TextureUsages::RENDER_ATTACHMENT,
-            view_formats: &[],
+            sample_count:    1,
+            dimension:       TextureDimension::D2,
+            format:          DEPTH_FORMAT,
+            usage:           TextureUsages::RENDER_ATTACHMENT,
+            view_formats:    &[],
         });
 
         texture.create_view(&TextureViewDescriptor::default())

@@ -18,16 +18,15 @@ use std::{
 };
 
 use js_sys::{Promise, Uint8Array};
+use redixel_core::{
+    AudioChannel, AudioConfig, AudioManager, ClipState, MusicOptions, SoundId,
+    audio::{clamp_fade, clamp_pitch, clamp_volume},
+};
 use wasm_bindgen::{JsCast, JsValue, closure::Closure};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{
     AudioBuffer, AudioBufferSourceNode, AudioContext, AudioContextState, AudioNode, AudioParam,
     AudioScheduledSourceNode, GainNode, Window,
-};
-
-use redixel_core::{
-    AudioChannel, AudioConfig, AudioManager, ClipState, MusicOptions, SoundId,
-    audio::{clamp_fade, clamp_pitch, clamp_volume},
 };
 
 use crate::{
@@ -48,13 +47,13 @@ type Mailbox = Rc<RefCell<VecDeque<(SoundId, Option<AudioBuffer>)>>>;
 /// The track playing on the music channel and the gain node its fades run on.
 struct MusicVoice {
     source: AudioBufferSourceNode,
-    gain: GainNode,
+    gain:   GainNode,
 }
 
 /// Window listeners that resume the `AudioContext` on a user gesture unless
 /// the app itself is suspended, removed again when this is dropped.
 struct GestureResume {
-    window: Window,
+    window:   Window,
     listener: Closure<dyn FnMut()>,
 }
 
@@ -91,16 +90,16 @@ impl Drop for GestureResume {
 
 /// The web [`AudioManager`], playing through the page's `AudioContext`.
 pub struct WasmAudioManager {
-    ctx: AudioContext,
-    master_gain: GainNode,
-    sfx_gain: GainNode,
-    music_gain: GainNode,
-    volumes: AudioConfig,
-    clips: ClipRegistry<AudioBuffer>,
-    decoded: Mailbox,
-    pending: PendingPlays,
-    music: Option<MusicVoice>,
-    app_suspended: Rc<Cell<bool>>,
+    ctx:             AudioContext,
+    master_gain:     GainNode,
+    sfx_gain:        GainNode,
+    music_gain:      GainNode,
+    volumes:         AudioConfig,
+    clips:           ClipRegistry<AudioBuffer>,
+    decoded:         Mailbox,
+    pending:         PendingPlays,
+    music:           Option<MusicVoice>,
+    app_suspended:   Rc<Cell<bool>>,
     _gesture_resume: Option<GestureResume>,
 }
 

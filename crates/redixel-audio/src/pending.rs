@@ -29,7 +29,7 @@ impl ReadyPlay {
 
 struct Waiting {
     play: ReadyPlay,
-    age: f32,
+    age:  f32,
 }
 
 /// Plays waiting on their clip to decode.
@@ -40,7 +40,7 @@ struct Waiting {
 #[derive(Default)]
 pub(crate) struct PendingPlays {
     sounds: Vec<Waiting>,
-    music: Option<Waiting>,
+    music:  Option<Waiting>,
 }
 
 impl PendingPlays {
@@ -50,7 +50,7 @@ impl PendingPlays {
         if self.sounds.len() < MAX_WAITING_SOUNDS {
             self.sounds.push(Waiting {
                 play: ReadyPlay::Sound { clip, volume, pitch },
-                age: 0.0,
+                age:  0.0,
             });
         }
     }
@@ -60,7 +60,7 @@ impl PendingPlays {
     pub(crate) fn wait_music(&mut self, clip: SoundId, options: MusicOptions) {
         self.music = Some(Waiting {
             play: ReadyPlay::Music { clip, options },
-            age: 0.0,
+            age:  0.0,
         });
     }
 
@@ -178,8 +178,8 @@ mod tests {
         assert_eq!(
             pending.take_ready(0.1, |_: SoundId| ClipState::Ready),
             vec![ReadyPlay::Music {
-                clip: OTHER,
-                options: MusicOptions::default()
+                clip:    OTHER,
+                options: MusicOptions::default(),
             }]
         );
     }

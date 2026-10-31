@@ -16,10 +16,9 @@ mod wasm;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub use native::NativeAudioManager;
+use redixel_core::{AudioConfig, AudioManager, NoOpAudio};
 #[cfg(target_arch = "wasm32")]
 pub use wasm::WasmAudioManager;
-
-use redixel_core::{AudioConfig, AudioManager, NoOpAudio};
 
 /// The shortest fade either backend applies when it stops or replaces a
 /// track, so a cut lands on silence instead of clicking.

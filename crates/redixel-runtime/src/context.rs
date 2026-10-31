@@ -15,32 +15,32 @@ pub enum DrawCommand {
     ClearColor(Color),
     Rect {
         position: Vec2,
-        size: Vec2,
-        color: Color,
+        size:     Vec2,
+        color:    Color,
     },
     Sprite {
         position: Vec2,
-        size: Vec2,
-        texture: TextureId,
-        tint: Color,
+        size:     Vec2,
+        texture:  TextureId,
+        tint:     Color,
     },
     Triangle {
-        p1: Vec2,
-        p2: Vec2,
-        p3: Vec2,
+        p1:    Vec2,
+        p2:    Vec2,
+        p3:    Vec2,
         color: Color,
     },
     Triangle3d {
-        p1: Vec3,
-        p2: Vec3,
-        p3: Vec3,
+        p1:    Vec3,
+        p2:    Vec3,
+        p3:    Vec3,
         color: Color,
     },
     Triangle3dTextured {
-        points: [Vec3; 3],
-        uvs: [Vec2; 3],
+        points:  [Vec3; 3],
+        uvs:     [Vec2; 3],
         texture: TextureId,
-        tint: Color,
+        tint:    Color,
     },
 }
 
@@ -51,7 +51,7 @@ pub enum DrawCommand {
 /// game code may pass a temporary, and the upload happens later in the frame.
 #[derive(Debug, Clone)]
 pub struct TextureRequest {
-    pub id: TextureId,
+    pub id:    TextureId,
     pub bytes: Vec<u8>,
 }
 
@@ -74,7 +74,7 @@ pub enum AudioCommand {
 /// request outlives the call that made it.
 #[derive(Debug, Clone)]
 pub struct SoundRequest {
-    pub id: SoundId,
+    pub id:    SoundId,
     pub bytes: Vec<u8>,
 }
 
@@ -409,9 +409,9 @@ impl<A: InputAction> GameContext<A> for Context<A> {
 
     fn play_sound_with(&mut self, sound: SoundId, volume: f32, pitch: f32) {
         self.audio_commands.push(AudioCommand::PlaySound {
-            clip: sound,
+            clip:   sound,
             volume: clamp_volume(volume),
-            pitch: clamp_pitch(pitch),
+            pitch:  clamp_pitch(pitch),
         });
     }
 
@@ -421,7 +421,7 @@ impl<A: InputAction> GameContext<A> for Context<A> {
 
     fn play_music_with(&mut self, sound: SoundId, options: MusicOptions) {
         self.audio_commands.push(AudioCommand::PlayMusic {
-            clip: sound,
+            clip:    sound,
             options: options.clamped(),
         });
     }

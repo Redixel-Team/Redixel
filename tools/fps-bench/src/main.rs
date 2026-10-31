@@ -1,3 +1,5 @@
+//! Internal CI benchmark: renders a fixed synthetic scene and reports median FPS, frame times and allocations per tier.
+
 #[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
 mod bench {
     use std::{
@@ -9,11 +11,10 @@ mod bench {
         time::{Duration, Instant},
     };
 
-    use wgpu::{Backends, PresentMode};
-
     use redixel::prelude::*;
     use redixel_platform::window::WindowConfig;
     use redixel_renderer::RendererConfig;
+    use wgpu::{Backends, PresentMode};
 
     const WARMUP: Duration = Duration::from_millis(500);
     const WARMUP_FRAMES: usize = 30;
@@ -54,10 +55,10 @@ mod bench {
 
     /// One measured window for one tier.
     struct Sample {
-        avg_fps: f64,
-        avg_frame_ms: f64,
-        p95_frame_ms: f64,
-        allocations: u64,
+        avg_fps:         f64,
+        avg_frame_ms:    f64,
+        p95_frame_ms:    f64,
+        allocations:     u64,
         allocated_bytes: u64,
     }
 
@@ -66,27 +67,27 @@ mod bench {
     /// Reports the median plus the observed range, because a single figure
     /// cannot distinguish a regression from an outlier.
     struct TierReport {
-        quad_count: usize,
-        scene: &'static str,
-        rounds: usize,
-        median_fps: f64,
-        fps_min: f64,
-        fps_max: f64,
-        spread_pct: f64,
-        median_frame_ms: f64,
+        quad_count:          usize,
+        scene:               &'static str,
+        rounds:              usize,
+        median_fps:          f64,
+        fps_min:             f64,
+        fps_max:             f64,
+        spread_pct:          f64,
+        median_frame_ms:     f64,
         median_p95_frame_ms: f64,
-        allocations: u64,
-        allocated_bytes: u64,
+        allocations:         u64,
+        allocated_bytes:     u64,
     }
 
     struct FpsBenchmark {
-        schedule: Vec<usize>,
-        step: usize,
-        step_started: Option<Instant>,
+        schedule:      Vec<usize>,
+        step:          usize,
+        step_started:  Option<Instant>,
         warmup_frames: usize,
-        samples: Vec<f64>,
-        alloc_start: (u64, u64),
-        collected: Arc<Mutex<Vec<Vec<Sample>>>>,
+        samples:       Vec<f64>,
+        alloc_start:   (u64, u64),
+        collected:     Arc<Mutex<Vec<Vec<Sample>>>>,
     }
 
     impl FpsBenchmark {
@@ -162,10 +163,10 @@ mod bench {
             let (alloc_count, alloc_bytes): (u64, u64) = alloc_snapshot();
 
             self.collected.lock().unwrap()[tier].push(Sample {
-                avg_fps: self.samples.len() as f64 / total_delta,
-                avg_frame_ms: (total_delta / self.samples.len() as f64) * 1000.0,
-                p95_frame_ms: percentile_ms(&self.samples, 0.95),
-                allocations: alloc_count - self.alloc_start.0,
+                avg_fps:         self.samples.len() as f64 / total_delta,
+                avg_frame_ms:    (total_delta / self.samples.len() as f64) * 1000.0,
+                p95_frame_ms:    percentile_ms(&self.samples, 0.95),
+                allocations:     alloc_count - self.alloc_start.0,
                 allocated_bytes: alloc_bytes - self.alloc_start.1,
             });
 
@@ -248,13 +249,13 @@ mod bench {
 
         let config: RuntimeConfig = RuntimeConfig::windowed(
             WindowConfig {
-                title: String::from("redixel-fps-bench"),
-                width: 1280,
-                height: 720,
+                title:      String::from("redixel-fps-bench"),
+                width:      1280,
+                height:     720,
                 fullscreen: false,
             },
             RendererConfig {
-                backends: Backends::all(),
+                backends:     Backends::all(),
                 present_mode: PresentMode::Immediate,
             },
             0.0,

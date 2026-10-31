@@ -1,12 +1,12 @@
-use std::sync::RwLockReadGuard;
+//! Public façade of the Redixel 2D & 3D game engine: the `prelude`, the `entry_point!` macro and the per-platform `run_*` functions.
 
-use winit::event_loop::{ControlFlow, EventLoop};
+use std::sync::RwLockReadGuard;
 
 use redixel_core::{AudioConfig, Game, RedixelError};
 use redixel_platform::window::WindowConfig;
 use redixel_renderer::RendererConfig;
 use redixel_runtime::{DEFAULT_TICKRATE, EngineSettings, RawBackend, RawPresentMode, Runtime, RuntimeConfig};
-
+use winit::event_loop::{ControlFlow, EventLoop};
 #[cfg(target_os = "android")]
 use winit::platform::android::activity::AndroidApp;
 
@@ -21,13 +21,10 @@ pub mod prelude {
         MusicOptions, NetworkChannel, NetworkEvent, NetworkManager, RedixelError, SERVER_ID, SequenceBuffer, SoundId,
         TextureId,
     };
-
     pub use redixel_math::{Color, Mat4, Vec2, Vec3};
-    pub use redixel_runtime::RuntimeConfig;
-
     #[cfg(feature = "net")]
     pub use redixel_net::{CertSource, DEFAULT_PROTOCOL_ID, NetConfig, NetMode};
-
+    pub use redixel_runtime::RuntimeConfig;
     #[cfg(not(target_arch = "wasm32"))]
     pub use redixel_runtime::{HeadlessRuntime, run_headless};
 }
@@ -41,13 +38,13 @@ pub fn build_config() -> RuntimeConfig {
 
     RuntimeConfig::windowed(
         WindowConfig {
-            width: settings.get_path("window.width", 1280),
-            height: settings.get_path("window.height", 720),
+            width:      settings.get_path("window.width", 1280),
+            height:     settings.get_path("window.height", 720),
             fullscreen: settings.get_path("window.fullscreen", false),
-            title: settings.get_path("app.name", String::from("Redixel")),
+            title:      settings.get_path("app.name", String::from("Redixel")),
         },
         RendererConfig {
-            backends: settings.get_path("renderer.backend", RawBackend(0)).into(),
+            backends:     settings.get_path("renderer.backend", RawBackend(0)).into(),
             present_mode: settings.get_path("renderer.present_mode", RawPresentMode(0)).into(),
         },
         settings.get_path("window.target_fps", 60.0),
@@ -55,8 +52,8 @@ pub fn build_config() -> RuntimeConfig {
     )
     .with_audio(AudioConfig {
         master_volume: settings.get_path("audio.master_volume", 1.0),
-        sfx_volume: settings.get_path("audio.sfx_volume", 1.0),
-        music_volume: settings.get_path("audio.music_volume", 1.0),
+        sfx_volume:    settings.get_path("audio.sfx_volume", 1.0),
+        music_volume:  settings.get_path("audio.music_volume", 1.0),
     })
 }
 
@@ -68,7 +65,7 @@ pub fn run_desktop<G: Game>(game: G) -> Result<(), RedixelError> {
 }
 
 /// Like [`run_desktop`] but with an explicit [`RuntimeConfig`] — use this to run
-/// a **windowed client** with networking enabled (set `config.net`).
+/// a **windowed client** with networking enabled (`RuntimeConfig::with_net`).
 ///
 /// Uses `EventLoopExtRunOnDemand`, which lets the event loop return control to
 /// the caller and be re-entered — a desktop-only capability not available on
@@ -90,15 +87,15 @@ pub fn run_desktop_with<G: Game>(game: G, config: RuntimeConfig) -> Result<(), R
     Ok(())
 }
 
-/// Runs `game` as a single-player Android app, loading [`RuntimeConfig`] from
-/// `config/config.json`.
+/// Runs `game` as a single-player Android app with the default [`RuntimeConfig`]
+/// (`config/config.json` is not reachable from the app's working directory).
 #[cfg(target_os = "android")]
 pub fn run_android<G: Game>(game: G, app: AndroidApp) -> Result<(), RedixelError> {
     run_android_with(game, app, build_config())
 }
 
 /// Like [`run_android`] but with an explicit [`RuntimeConfig`] — use this to run
-/// a **windowed client** with networking enabled (set `config.net`).
+/// a **windowed client** with networking enabled (`RuntimeConfig::with_net`).
 #[cfg(target_os = "android")]
 pub fn run_android_with<G: Game>(game: G, app: AndroidApp, config: RuntimeConfig) -> Result<(), RedixelError> {
     use winit::platform::android::EventLoopBuilderExtAndroid;
@@ -120,8 +117,8 @@ pub fn run_android_with<G: Game>(game: G, app: AndroidApp, config: RuntimeConfig
     Ok(())
 }
 
-/// Runs `game` as a single-player iOS app, loading [`RuntimeConfig`] from
-/// `config/config.json`. Unlike desktop/Android, this is not reached through
+/// Runs `game` as a single-player iOS app with the default [`RuntimeConfig`]
+/// (`config/config.json` is not reachable from the app). Unlike desktop/Android, this is not reached through
 /// the crate's own `fn main()` — `UIApplicationMain` must be called before
 /// anything else touches UIKit, so call this from a
 /// `#[unsafe(no_mangle)] extern "C" fn` exported for an Xcode project to embed
@@ -132,7 +129,7 @@ pub fn run_ios<G: Game + 'static>(game: G) -> Result<(), RedixelError> {
 }
 
 /// Like [`run_ios`] but with an explicit [`RuntimeConfig`] — use this to run a
-/// **windowed client** with networking enabled (set `config.net`).
+/// **windowed client** with networking enabled (`RuntimeConfig::with_net`).
 ///
 /// iOS has no `EventLoopExtRunOnDemand`
 /// (desktop-only), so this uses the portable [`EventLoop::run_app`], which
@@ -151,15 +148,15 @@ pub fn run_ios_with<G: Game + 'static>(game: G, config: RuntimeConfig) -> Result
     Ok(())
 }
 
-/// Runs `game` as a single-player browser app, loading [`RuntimeConfig`] from
-/// `config/config.json`.
+/// Runs `game` as a single-player browser app with the default [`RuntimeConfig`]
+/// (the browser has no filesystem to read `config/config.json` from).
 #[cfg(target_arch = "wasm32")]
 pub fn run_wasm<G: Game + 'static>(game: G) -> Result<(), RedixelError> {
     run_wasm_with(game, build_config())
 }
 
 /// Like [`run_wasm`] but with an explicit [`RuntimeConfig`] — use this to run a
-/// **windowed client** with networking enabled (set `config.net`).
+/// **windowed client** with networking enabled (`RuntimeConfig::with_net`).
 #[cfg(target_arch = "wasm32")]
 pub fn run_wasm_with<G: Game + 'static>(game: G, config: RuntimeConfig) -> Result<(), RedixelError> {
     let event_loop: EventLoop = EventLoop::new()?;

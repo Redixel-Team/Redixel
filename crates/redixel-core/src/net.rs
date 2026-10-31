@@ -92,8 +92,9 @@ pub trait NetworkManager {
     /// `true` if this instance is the authoritative server.
     fn is_server(&self) -> bool;
 
-    /// The local client id once connected, or `None` on a pure server or while
-    /// a client connection is still pending.
+    /// The local client id, or `None` on a pure server. Networked clients
+    /// report `None` until the handshake assigns an id; the in-process
+    /// loopback assigns its id up front.
     fn local_client(&self) -> Option<ClientId>;
 
     /// `true` once the transport is usable (server bound, or client connected).
@@ -210,19 +211,22 @@ impl NetworkManager for NoOpNetwork {
 /// ```
 #[derive(Debug, Clone)]
 pub struct SequenceBuffer<T> {
-    slots: Box<[Slot<T>]>,
+    slots:    Box<[Slot<T>]>,
     capacity: u64,
 }
 
 #[derive(Debug, Clone)]
 struct Slot<T> {
-    seq: Option<u64>,
+    seq:   Option<u64>,
     value: Option<T>,
 }
 
 impl<T> Default for Slot<T> {
     fn default() -> Self {
-        Slot { seq: None, value: None }
+        Slot {
+            seq:   None,
+            value: None,
+        }
     }
 }
 
@@ -238,7 +242,7 @@ impl<T> SequenceBuffer<T> {
         slots.resize_with(capacity, Slot::default);
 
         Self {
-            slots: slots.into_boxed_slice(),
+            slots:    slots.into_boxed_slice(),
             capacity: capacity as u64,
         }
     }

@@ -7,7 +7,7 @@ version = "0.5.0"
 edition = "2024"
 license = "Apache-2.0"
 authors = ["Redixel Core Team"]
-repository = "https://github.com/Redixel-Team"
+repository = "https://github.com/Redixel-Team/Redixel"
 
 [profile.release]
 lto = true
@@ -47,6 +47,7 @@ wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 web-sys = "0.3"
 js-sys = "0.3.103"
+toml = "1.1.2"
 web-time = "1.1"
 cpal = "0.18.2"
 rtrb = "0.4.0"

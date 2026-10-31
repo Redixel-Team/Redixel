@@ -64,6 +64,8 @@ Make sure you have accepted all licenses (you can do this in Android Studio or b
 
 > **Note:** Logs can be inspected in real-time using `adb logcat -s REDIXEL_ENGINE`.
 
+> **Note:** the `Shooter` example plays audio, which needs Android 8.0 (API level 26) or newer on the device.
+
 ## Manual Installation
 
 If you prefer to install the compiled APK manually without using USB Debugging, you can build it and find the output in the `target` directory:

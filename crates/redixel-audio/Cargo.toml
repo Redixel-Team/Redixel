@@ -1,0 +1,38 @@
+[package]
+name = "redixel-audio"
+description = "Audio playback for the Redixel engine: decoding and mixing sound effects and music."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+# Internal crates
+redixel-core = { workspace = true }
+
+# External crates
+log = { workspace = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+cpal = { workspace = true }
+rtrb = { workspace = true }
+symphonia = { workspace = true, features = ["ogg", "pcm", "vorbis", "wav"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+js-sys = { workspace = true }
+wasm-bindgen = { workspace = true }
+wasm-bindgen-futures = { workspace = true }
+web-sys = { workspace = true, features = [
+    "AudioBuffer",
+    "AudioBufferSourceNode",
+    "AudioContext",
+    "AudioContextState",
+    "AudioDestinationNode",
+    "AudioNode",
+    "AudioParam",
+    "AudioScheduledSourceNode",
+    "EventTarget",
+    "GainNode",
+    "Window",
+] }

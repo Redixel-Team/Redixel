@@ -6,7 +6,7 @@ Redixel is a high-performance 2D & 3D game engine written in Rust, with a strict
 
 The primary goal of this project is to build a clean, modular, and scalable engine architecture from scratch. It enforces strict software engineering standards—such as unidirectional data flow and strong layer separation—to prevent the technical debt common in growing game engines.
 
-**Highlights:** batched 2D rendering with textured sprites · depth-buffered 3D rendering with perspective projection · WebGPU with a WebGL2 fallback in the browser · authoritative multiplayer over WebTransport, with cross-play between native and browser clients · one `entry_point!` that boots the same game on every platform.
+**Highlights:** batched 2D rendering with textured sprites · depth-buffered 3D rendering with perspective projection · WebGPU with a WebGL2 fallback in the browser · authoritative multiplayer over WebTransport, with cross-play between native and browser clients · sound effects and crossfading music · one `entry_point!` that boots the same game on every platform.
 
 ## Technology Stack
 
@@ -16,6 +16,7 @@ The primary goal of this project is to build a clean, modular, and scalable engi
 | **Windowing**    | Winit                                   | Event loop management and low-level platform abstraction.                                                                                                                                                     |
 | **Graphics**     | WGPU                                    | Portable graphics API targeting Vulkan, Metal, DX12, and WebGL/WebGPU.                                                                                                                                        |
 | **Networking**   | WebTransport (`wtransport` / `web-sys`) | QUIC/HTTP-3 transport unifying reliable and unreliable delivery on one encrypted connection — native via `wtransport`, browser via `web-sys`'s `WebTransport` bindings, both speaking the same wire protocol. |
+| **Audio**        | `cpal` + `symphonia` / Web Audio API    | Sound effects and looping music decoded from WAV and OGG Vorbis — native via `cpal` for output and `symphonia` for decoding, mixed by the engine, browser via `web-sys`'s Web Audio API bindings.             |
 | **Build System** | Cargo                                   | Standard Rust package manager and build tool.                                                                                                                                                                 |
 
 ## Quick Start

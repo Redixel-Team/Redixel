@@ -9,6 +9,7 @@ repository.workspace = true
 
 [features]
 net = ["dep:redixel-net", "redixel-runtime/net"]
+audio = ["redixel-runtime/audio"]
 
 [dependencies]
 # Internal crates

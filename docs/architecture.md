@@ -39,14 +39,20 @@ Implements the `NetworkManager` trait defined in `redixel-core`.
 
 - **Transports:** `WebTransportServer`/`WebTransportClient` natively via `wtransport`, a browser client via `web-sys`'s `WebTransport` bindings, and `LoopbackNetwork` for tests and single-process hosting. All of them speak the same wire protocol.
 
-## 6\. Core Layer (`redixel-core`)
+## 6\. Audio Layer (`redixel-audio`, optional `audio` feature)
+
+Implements the `AudioManager` trait defined in `redixel-core`.
+
+- **Backends:** natively, `cpal` drives the output device and `symphonia` decodes WAV and OGG Vorbis, mixed by the engine's own multi-voice mixer; in the browser, the Web Audio API via `web-sys`. Both degrade to a silent no-op when output cannot start.
+
+## 7\. Core Layer (`redixel-core`)
 
 The structural foundation of the engine framework.
 
-- **Responsibility:** Defines the main lifecycles (`Game` trait), the shared execution context (`GameContext`), the input action bindings, the `NetworkManager` trait, texture handles (`TextureId`), and the centralized error system (`RedixelError`).
+- **Responsibility:** Defines the main lifecycles (`Game` trait), the shared execution context (`GameContext`), the input action bindings, the `NetworkManager` and `AudioManager` traits, texture and sound handles (`TextureId`, `SoundId`), and the centralized error system (`RedixelError`).
 - **Dependencies:** Relies on `redixel-math` for type definitions, and on `winit` only for its input types (`KeyCode`, `MouseButton`) and window errors. It knows nothing of the runtime or the renderer: the `wgpu` error variants sit behind an optional `wgpu` feature.
 
-## 7\. Mathematics Layer (`redixel-math`)
+## 8\. Mathematics Layer (`redixel-math`)
 
 The absolute bedrock utility crate of the entire workspace.
 
@@ -66,6 +72,7 @@ redixel/
 │   ├── redixel-renderer/       # Wgpu: GPU device, 2D/3D pipelines, batches, textures
 │   ├── redixel-runtime/        # Loop, AppState, TimeManager, Settings
 │   ├── redixel-net/            # NetworkManager transports (WebTransport, loopback)
+│   ├── redixel-audio/          # AudioManager backends (cpal+symphonia, Web Audio API)
 │   └── redixel/                # Public facade API (pub use ..., entry_point!)
 ├── docs/                       # Platform, multiplayer and architecture guides
 ├── examples/

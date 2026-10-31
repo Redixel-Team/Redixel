@@ -1,3 +1,5 @@
+//! Networking transports for the Redixel engine: WebTransport (native and browser) and an in-process loopback, all behind `NetworkManager`.
+
 mod frame;
 mod inbound;
 mod seq;

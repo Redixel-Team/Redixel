@@ -4,12 +4,10 @@ use std::{
     sync::{OnceLock, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
+use redixel_core::RedixelError;
 use serde::{Deserialize, de::DeserializeOwned};
 use serde_json::{Error, Value};
-
 use wgpu::{Backends, PresentMode};
-
-use redixel_core::RedixelError;
 
 #[derive(Debug)]
 pub struct EngineSettings {

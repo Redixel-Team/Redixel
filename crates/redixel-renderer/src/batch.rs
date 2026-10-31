@@ -1,11 +1,10 @@
-use wgpu::{Buffer, BufferDescriptor, BufferUsages, Device, IndexFormat, Queue, RenderPass};
-
 use redixel_core::TextureId;
 use redixel_math::{Color, Vec2, Vec3};
+use wgpu::{Buffer, BufferDescriptor, BufferUsages, Device, IndexFormat, Queue, RenderPass};
 
 use crate::{pipeline::Vertex, texture::TextureRegistry};
 
-/// Relative to the rectangle's own first vertex. Clockwise in world space,
+/// Relative to the rectangle's own first vertex. Clockwise in pixel space,
 /// which the camera's y-flipping projection turns into the `FrontFace::Ccw`
 /// the shape pipeline declares.
 const RECT_INDICES: [u32; 6] = [0, 2, 1, 1, 2, 3];
@@ -32,23 +31,23 @@ fn quad_vertices(position: Vec2, size: Vec2, color: Color, uvs: [[f32; 2]; 4]) -
     [
         Vertex {
             position: [x0, y0, 0.0],
-            color: c,
-            uv: uvs[0],
+            color:    c,
+            uv:       uvs[0],
         },
         Vertex {
             position: [x1, y0, 0.0],
-            color: c,
-            uv: uvs[1],
+            color:    c,
+            uv:       uvs[1],
         },
         Vertex {
             position: [x0, y1, 0.0],
-            color: c,
-            uv: uvs[2],
+            color:    c,
+            uv:       uvs[2],
         },
         Vertex {
             position: [x1, y1, 0.0],
-            color: c,
-            uv: uvs[3],
+            color:    c,
+            uv:       uvs[3],
         },
     ]
 }
@@ -60,18 +59,18 @@ fn triangle_vertices(p1: Vec2, p2: Vec2, p3: Vec2, color: Color) -> [Vertex; 3] 
     [
         Vertex {
             position: [p1.x, p1.y, 0.0],
-            color: c,
-            uv: SOLID_UVS[0],
+            color:    c,
+            uv:       SOLID_UVS[0],
         },
         Vertex {
             position: [p2.x, p2.y, 0.0],
-            color: c,
-            uv: SOLID_UVS[0],
+            color:    c,
+            uv:       SOLID_UVS[0],
         },
         Vertex {
             position: [p3.x, p3.y, 0.0],
-            color: c,
-            uv: SOLID_UVS[0],
+            color:    c,
+            uv:       SOLID_UVS[0],
         },
     ]
 }
@@ -85,8 +84,8 @@ fn triangle_vertices_3d(points: [Vec3; 3], uvs: [Vec2; 3], color: Color) -> [Ver
 
     std::array::from_fn(|i: usize| Vertex {
         position: points[i].to_array(),
-        color: c,
-        uv: [uvs[i].x, uvs[i].y],
+        color:    c,
+        uv:       [uvs[i].x, uvs[i].y],
     })
 }
 
@@ -95,8 +94,8 @@ fn triangle_vertices_3d(points: [Vec3; 3], uvs: [Vec2; 3], color: Color) -> [Ver
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct DrawRun {
     texture: Option<TextureId>,
-    start: u32,
-    end: u32,
+    start:   u32,
+    end:     u32,
 }
 
 /// Geometry accumulated on the CPU during a frame.
@@ -106,8 +105,8 @@ struct DrawRun {
 #[derive(Default)]
 struct Geometry {
     vertices: Vec<Vertex>,
-    indices: Vec<u32>,
-    runs: Vec<DrawRun>,
+    indices:  Vec<u32>,
+    runs:     Vec<DrawRun>,
 }
 
 impl Geometry {
@@ -140,20 +139,20 @@ impl Geometry {
     }
 }
 
-fn create_vertex_buffer(device: &Device, vertices: usize) -> Buffer {
+fn create_vertex_buffer(device: &Device, label: &str, vertices: usize) -> Buffer {
     device.create_buffer(&BufferDescriptor {
-        label: Some("REDIXEL_SPRITE_BATCH_VB"),
-        size: (vertices * std::mem::size_of::<Vertex>()) as u64,
-        usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
+        label:              Some(&format!("{label}_VB")),
+        size:               (vertices * std::mem::size_of::<Vertex>()) as u64,
+        usage:              BufferUsages::VERTEX | BufferUsages::COPY_DST,
         mapped_at_creation: false,
     })
 }
 
-fn create_index_buffer(device: &Device, indices: usize) -> Buffer {
+fn create_index_buffer(device: &Device, label: &str, indices: usize) -> Buffer {
     device.create_buffer(&BufferDescriptor {
-        label: Some("REDIXEL_SPRITE_BATCH_IB"),
-        size: (indices * std::mem::size_of::<u32>()) as u64,
-        usage: BufferUsages::INDEX | BufferUsages::COPY_DST,
+        label:              Some(&format!("{label}_IB")),
+        size:               (indices * std::mem::size_of::<u32>()) as u64,
+        usage:              BufferUsages::INDEX | BufferUsages::COPY_DST,
         mapped_at_creation: false,
     })
 }
@@ -164,20 +163,22 @@ fn create_index_buffer(device: &Device, indices: usize) -> Buffer {
 /// nothing up front: buffers start empty and grow to fit whatever is drawn, so
 /// nothing is ever silently dropped.
 struct GeometryBuffers {
-    vertex_buffer: Buffer,
-    index_buffer: Buffer,
+    label:           &'static str,
+    vertex_buffer:   Buffer,
+    index_buffer:    Buffer,
     vertex_capacity: usize,
-    index_capacity: usize,
-    geometry: Geometry,
+    index_capacity:  usize,
+    geometry:        Geometry,
 }
 
 impl GeometryBuffers {
     /// The first `flush()` sizes the buffers to the frame actually drawn, so a
     /// game that draws little pays for little.
-    fn new(device: &Device) -> Self {
+    fn new(device: &Device, label: &'static str) -> Self {
         Self {
-            vertex_buffer: create_vertex_buffer(device, 0),
-            index_buffer: create_index_buffer(device, 0),
+            label,
+            vertex_buffer: create_vertex_buffer(device, label, 0),
+            index_buffer: create_index_buffer(device, label, 0),
             vertex_capacity: 0,
             index_capacity: 0,
             geometry: Geometry::default(),
@@ -229,13 +230,13 @@ impl GeometryBuffers {
         let vertices: usize = self.geometry.vertices.len();
         if vertices > self.vertex_capacity {
             self.vertex_capacity = vertices.next_power_of_two();
-            self.vertex_buffer = create_vertex_buffer(device, self.vertex_capacity);
+            self.vertex_buffer = create_vertex_buffer(device, self.label, self.vertex_capacity);
         }
 
         let indices: usize = self.geometry.indices.len();
         if indices > self.index_capacity {
             self.index_capacity = indices.next_power_of_two();
-            self.index_buffer = create_index_buffer(device, self.index_capacity);
+            self.index_buffer = create_index_buffer(device, self.label, self.index_capacity);
         }
     }
 }
@@ -256,14 +257,14 @@ pub struct SpriteBatch {
 impl SpriteBatch {
     pub fn new(device: &Device) -> Self {
         Self {
-            buffers: GeometryBuffers::new(device),
+            buffers: GeometryBuffers::new(device, "REDIXEL_SPRITE_BATCH"),
         }
     }
 
     /// Queues a filled rectangle for drawing.
     ///
-    /// - `position` — top-left corner in world coordinates (y-down)
-    /// - `size`     — width × height in world units
+    /// - `position` — top-left corner in surface pixels (y-down)
+    /// - `size`     — width × height in pixels
     /// - `color`    — RGBA fill colour
     pub fn draw_rect(&mut self, position: Vec2, size: Vec2, color: Color) {
         self.buffers
@@ -272,8 +273,8 @@ impl SpriteBatch {
 
     /// Queues a textured rectangle for drawing.
     ///
-    /// - `position` — top-left corner in world coordinates (y-down)
-    /// - `size`     — width × height in world units
+    /// - `position` — top-left corner in surface pixels (y-down)
+    /// - `size`     — width × height in pixels
     /// - `texture`  — the image to stretch across the quad
     /// - `tint`     — multiplied into every sampled texel; `Color::WHITE` is the no-op
     pub fn draw_sprite(&mut self, position: Vec2, size: Vec2, texture: TextureId, tint: Color) {
@@ -283,7 +284,7 @@ impl SpriteBatch {
 
     /// Queues a filled triangle for drawing.
     ///
-    /// - `p1`, `p2`, `p3` — The three corners of the triangle in world coordinates
+    /// - `p1`, `p2`, `p3` — the three corners, in surface pixels (y-down)
     /// - `color`          — RGBA fill colour
     pub fn draw_triangle(&mut self, p1: Vec2, p2: Vec2, p3: Vec2, color: Color) {
         self.buffers
@@ -327,7 +328,7 @@ pub struct MeshBatch {
 impl MeshBatch {
     pub fn new(device: &Device) -> Self {
         Self {
-            buffers: GeometryBuffers::new(device),
+            buffers: GeometryBuffers::new(device, "REDIXEL_MESH_BATCH"),
         }
     }
 
@@ -403,8 +404,8 @@ mod tests {
                 projection.cols[1][1] * vertices[i].position[1] + projection.cols[3][1],
                 0.0,
             ],
-            color: vertices[i].color,
-            uv: vertices[i].uv,
+            color:    vertices[i].color,
+            uv:       vertices[i].uv,
         })
     }
 

@@ -18,14 +18,14 @@ enum Action {
 }
 
 struct Paddle {
-    pos: Vec2,
+    pos:   Vec2,
     vel_y: f32,
 }
 
 impl Paddle {
     fn new() -> Self {
         Self {
-            pos: Vec2::ZERO,
+            pos:   Vec2::ZERO,
             vel_y: 0.0,
         }
     }
@@ -59,22 +59,22 @@ impl Ball {
 }
 
 struct Pong {
-    left: Paddle,
-    right: Paddle,
-    ball: Ball,
-    score: (u32, u32),
-    initialized: bool,
+    left:             Paddle,
+    right:            Paddle,
+    ball:             Ball,
+    score:            (u32, u32),
+    initialized:      bool,
     use_mouse_scroll: bool,
 }
 
 impl Pong {
     fn new() -> Self {
         Self {
-            left: Paddle::new(),
-            right: Paddle::new(),
-            ball: Ball::new(),
-            score: (0, 0),
-            initialized: false,
+            left:             Paddle::new(),
+            right:            Paddle::new(),
+            ball:             Ball::new(),
+            score:            (0, 0),
+            initialized:      false,
             use_mouse_scroll: false,
         }
     }

@@ -1,17 +1,29 @@
 use redixel::prelude::*;
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+enum Action {
+    Exit,
+}
+
 struct Triangle;
 
 impl Game for Triangle {
-    type Action = ();
+    type Action = Action;
 
-    fn on_start(&mut self, _ctx: &mut dyn GameContext<Self::Action>) {
+    fn on_start(&mut self, ctx: &mut dyn GameContext<Self::Action>) {
+        ctx.input_mut().bind(Action::Exit, KeyCode::Escape.into());
         log::info!("triangle::on_start");
     }
 
-    fn on_update(&mut self, _ctx: &mut dyn GameContext<Self::Action>) {}
+    fn on_update(&mut self, ctx: &mut dyn GameContext<Self::Action>) {
+        if ctx.input().just_pressed(Action::Exit) {
+            ctx.exit();
+        }
+    }
 
     fn on_render(&mut self, ctx: &mut dyn GameContext<Self::Action>) {
+        ctx.clear_color(Color::rgb(0.1, 0.1, 0.12));
+
         let h: f32 = ctx.surface_height() as f32;
         let w: f32 = ctx.surface_width() as f32;
 

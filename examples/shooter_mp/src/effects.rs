@@ -4,45 +4,45 @@ use redixel::prelude::{Color, GameContext, InputAction, Vec2};
 
 /// Tunable parameters for a one-shot particle burst.
 pub struct ParticleProps {
-    pub pos: Vec2,
+    pub pos:   Vec2,
     pub color: (u8, u8, u8),
     pub count: usize,
     pub speed: f32,
-    pub seed: f32,
-    pub life: f32,
-    pub size: f32,
+    pub seed:  f32,
+    pub life:  f32,
+    pub size:  f32,
 }
 
 /// A single short-lived spark drifting outward from its spawn point.
 struct Particle {
-    pos: Vec2,
-    vel: Vec2,
-    life: f32,
+    pos:      Vec2,
+    vel:      Vec2,
+    life:     f32,
     max_life: f32,
-    r: u8,
-    g: u8,
-    b: u8,
-    size: f32,
+    r:        u8,
+    g:        u8,
+    b:        u8,
+    size:     f32,
 }
 
 /// A fading ghost square left behind by a dashing agent.
 struct Afterimage {
-    pos: Vec2,
-    size: f32,
-    life: f32,
+    pos:      Vec2,
+    size:     f32,
+    life:     f32,
     max_life: f32,
-    r: u8,
-    g: u8,
-    b: u8,
+    r:        u8,
+    g:        u8,
+    b:        u8,
 }
 
 /// A self-contained cosmetic system — particles, dash after-images, and screen
 /// shake — with no knowledge of game or network logic. The client drives it.
 #[derive(Default)]
 pub struct Effects {
-    particles: Vec<Particle>,
+    particles:   Vec<Particle>,
     afterimages: Vec<Afterimage>,
-    shake: f32,
+    shake:       f32,
 }
 
 impl Effects {

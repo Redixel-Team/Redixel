@@ -19,35 +19,57 @@ To prevent this, you **must** configure your editor to use `clippy` as the defau
 
 This ensures you see the same errors locally that the CI will report remotely.
 
+### 2\. Formatting (nightly `rustfmt`)
+
+Our `rustfmt.toml` uses options that only the **nightly** `rustfmt` understands (import grouping and merging, struct field alignment), so formatting runs on nightly while the code itself builds on stable. The CI's format check runs `cargo +nightly fmt -- --check`.
+
+Install it once:
+
+```sh
+rustup toolchain install nightly --profile minimal --component rustfmt
+```
+
+Then format with:
+
+```sh
+cargo +nightly fmt
+```
+
+Each example is its own Cargo workspace, so format them too: `cargo +nightly fmt --manifest-path examples/<name>/Cargo.toml`.
+
+To format on save in VS Code, point rust-analyzer at the nightly formatter:
+
+```json
+{
+  "rust-analyzer.rustfmt.extraArgs": ["+nightly"]
+}
+```
+
 ## Code Style & Conventions
 
 We enforce a strict coding style that differs slightly from standard Rust defaults, particularly regarding imports and type definitions.
 
 ### 1\. Import Ordering & Grouping
 
-Imports must be organized in strict blocks separated by a blank line.
+`cargo +nightly fmt` arranges imports for you: one `use` per crate (merged with `{ ... }`), sorted alphabetically, in three blocks separated by a blank line.
 
-1.  **Module Declarations** (`mod ...`)
-2.  **Standard Library** (`std::...`)
-3.  **External Crates** (Alphabetical, grouped by crate, separated by newlines)
-4.  **Internal/Project Imports** (`super::...`, `crate::...`)
+1.  **Standard Library** (`std::...`, `core::...`)
+2.  **Other Crates** (external and the workspace's own `redixel_*` crates alike)
+3.  **This Crate** (`crate::...`, `super::...`, `self::...`)
 
 **Example:**
 
 ```rust
 mod engine;
 
-use std::error::Error;
-use std::sync::Arc;
-
-use wgpu::Adapter;
-use wgpu::Device;
-
-use winit::event::WindowEvent;
-use winit::window::Window;
+use std::{error::Error, sync::Arc};
 
 use redixel_core::RedixelError;
 use redixel_renderer::Renderer;
+use wgpu::{Adapter, Device};
+use winit::{event::WindowEvent, window::Window};
+
+use crate::engine::Engine;
 ```
 
 ### 2\. Type Definitions & Return Types
@@ -67,8 +89,6 @@ fn get_adapter() -> wgpu::util::backend::Adapter { ... }
 use wgpu::Instance;
 
 fn create_instance() -> Instance { ... }
-
-fn create_instance() -> wgpu::Instance { ... }
 ```
 
 ### 3\. Explicit Typing
@@ -118,7 +138,7 @@ All changes must go through a Pull Request (PR).
 ### 2\. Testing
 
 - **Requirement:** Every new feature or bug fix must include relevant tests.
-- **Execution:** Ensure all unit tests pass locally by running `cargo test` before opening an PR.
+- **Execution:** Ensure all unit tests pass locally by running `cargo test` before opening a PR.
 - **Integration:** If your feature affects the rendering pipeline, ensure it does not break existing examples.
 
 ### 3\. Changelog
@@ -129,12 +149,12 @@ All changes must go through a Pull Request (PR).
 ### 4\. Pull Request (PR) Process
 
 1.  Push your feature branch to the repository.
-2.  Open a Pull Request targeting the relevant version branch (e.g., `dev-0.1.0`, `dev-0.2.1`).
-3.  **CI Pipeline:** Wait for the Continuous Integration pipeline to pass. This checks:
-    - Compilation (`cargo check`)
-    - Formatting (`cargo fmt --check`)
-    - Linter (`cargo clippy` - no warnings allowed)
-    - Tests (`cargo test`)
+2.  Open a Pull Request targeting the relevant version branch (e.g., `dev-0.6.0`).
+3.  **CI Pipeline:** Wait for the Continuous Integration pipeline to pass. It runs against the workspace and every example, on Desktop (Linux, Windows, macOS), Web, Android and iOS:
+    - Formatting (`cargo +nightly fmt -- --check`)
+    - Linter (`cargo clippy -- -D warnings` - no warnings allowed)
+    - Tests (`cargo test`, with and without the `net` feature)
+    - Build (`cargo build`, plus `cargo apk build` for Android)
 4.  **Code Review:** Request a review from a team member. You cannot merge your own code.
 5.  Once approved and the pipeline is green, the PR can be merged.
 

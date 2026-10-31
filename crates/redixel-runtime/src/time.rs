@@ -37,38 +37,38 @@ const DEFAULT_MAX_SUBSTEPS: u32 = 8;
 /// ```
 #[derive(Debug)]
 pub struct TimeManager {
-    fps: f64,
-    frame_target: f64,
-    frame_start: Instant,
-    frame_last: Instant,
+    fps:                f64,
+    frame_target:       f64,
+    frame_start:        Instant,
+    frame_last:         Instant,
     last_interval_tick: Instant,
-    frame_times: [f64; FPS_WINDOW],
-    frame_times_idx: usize,
+    frame_times:        [f64; FPS_WINDOW],
+    frame_times_idx:    usize,
     frame_times_filled: usize,
-    fixed_step: f64,
-    accumulator: f64,
-    max_substeps: u32,
-    fixed_tick: u64,
-    elapsed: f64,
+    fixed_step:         f64,
+    accumulator:        f64,
+    max_substeps:       u32,
+    fixed_tick:         u64,
+    elapsed:            f64,
 }
 
 impl TimeManager {
     pub fn new() -> Self {
         let now: Instant = Instant::now();
         Self {
-            fps: 0.0,
-            frame_target: 0.0,
-            frame_start: now,
-            frame_last: now,
+            fps:                0.0,
+            frame_target:       0.0,
+            frame_start:        now,
+            frame_last:         now,
             last_interval_tick: now,
-            frame_times: [0.0; FPS_WINDOW],
-            frame_times_idx: 0,
+            frame_times:        [0.0; FPS_WINDOW],
+            frame_times_idx:    0,
             frame_times_filled: 0,
-            fixed_step: 1.0 / DEFAULT_TICKRATE,
-            accumulator: 0.0,
-            max_substeps: DEFAULT_MAX_SUBSTEPS,
-            fixed_tick: 0,
-            elapsed: 0.0,
+            fixed_step:         1.0 / DEFAULT_TICKRATE,
+            accumulator:        0.0,
+            max_substeps:       DEFAULT_MAX_SUBSTEPS,
+            fixed_tick:         0,
+            elapsed:            0.0,
         }
     }
 

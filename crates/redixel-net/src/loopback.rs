@@ -12,8 +12,8 @@ const LOOPBACK_CLIENT_ID: ClientId = 1;
 
 struct Packet {
     channel: NetworkChannel,
-    seq: u32,
-    data: Vec<u8>,
+    seq:     u32,
+    data:    Vec<u8>,
 }
 
 /// One end of an in-process server/client link, useful for tests and
@@ -21,12 +21,12 @@ struct Packet {
 /// [`LoopbackNetwork::pair`].
 pub struct LoopbackNetwork {
     is_server: bool,
-    local_id: ClientId,
-    tx: Sender<Packet>,
-    rx: Receiver<Packet>,
-    queue: InboundQueue<Vec<u8>>,
-    last_seq: Option<u32>,
-    send_seq: u32,
+    local_id:  ClientId,
+    tx:        Sender<Packet>,
+    rx:        Receiver<Packet>,
+    queue:     InboundQueue<Vec<u8>>,
+    last_seq:  Option<u32>,
+    send_seq:  u32,
     announced: bool,
     peer_gone: bool,
 }
@@ -41,24 +41,24 @@ impl LoopbackNetwork {
 
         let server: LoopbackNetwork = LoopbackNetwork {
             is_server: true,
-            local_id: SERVER_ID,
-            tx: s2c_tx,
-            rx: c2s_rx,
-            queue: InboundQueue::new(),
-            last_seq: None,
-            send_seq: 0,
+            local_id:  SERVER_ID,
+            tx:        s2c_tx,
+            rx:        c2s_rx,
+            queue:     InboundQueue::new(),
+            last_seq:  None,
+            send_seq:  0,
             announced: false,
             peer_gone: false,
         };
 
         let client: LoopbackNetwork = LoopbackNetwork {
             is_server: false,
-            local_id: LOOPBACK_CLIENT_ID,
-            tx: c2s_tx,
-            rx: s2c_rx,
-            queue: InboundQueue::new(),
-            last_seq: None,
-            send_seq: 0,
+            local_id:  LOOPBACK_CLIENT_ID,
+            tx:        c2s_tx,
+            rx:        s2c_rx,
+            queue:     InboundQueue::new(),
+            last_seq:  None,
+            send_seq:  0,
             announced: false,
             peer_gone: false,
         };
@@ -133,14 +133,14 @@ impl NetworkManager for LoopbackNetwork {
             match self.rx.try_recv() {
                 Ok(pkt) => match pkt.channel {
                     NetworkChannel::ReliableOrdered => self.queue.push(Inbound::Message {
-                        client: sender,
+                        client:  sender,
                         channel: pkt.channel,
                         payload: pkt.data,
                     }),
                     NetworkChannel::UnreliableSequenced => {
                         if seq::accept_seq(&mut self.last_seq, pkt.seq) {
                             self.queue.push(Inbound::Message {
-                                client: sender,
+                                client:  sender,
                                 channel: pkt.channel,
                                 payload: pkt.data,
                             });

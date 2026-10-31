@@ -20,6 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Renderer:** `CameraUniform`/`Camera` replaced by `GlobalUniforms`/`UniformBlock` (`camera_2d`/`camera_3d` → `globals_2d`/`globals_3d`) — the block is no longer only a camera. Breaking for direct `redixel-renderer` consumers.
 - **Renderer:** the vertex shader transforms by `projection * view`; `view` is the identity today, so output is unchanged — the multiply is the seam a camera system (planned) slots into.
 - **Docs:** the README is trimmed to an overview that links out to new guides under `docs/` (getting started, web, Android, iOS, multiplayer, architecture), and it describes the engine as 2D & 3D. The ROADMAP now matches the code: shipped vertex buffers, uniforms, and batching are checked, 3D rendering and platforms have phases of their own, and items link to their stories.
+- **Platform:** the desktop window title shows the configured `app.name` (`"<name> — <fps> FPS"`) instead of a hardcoded `"Redixel"`.
+- **Renderer:** the 3D batch's GPU buffers are labelled `REDIXEL_MESH_BATCH_VB`/`_IB` instead of reusing the sprite batch's labels.
+- **Examples:** `triangle`, `triangle_3d` and `sprite` quit on ESC like the other examples, and `triangle` sets its own clear colour. `shooter` drives its powerup respawn, dash after-images and bullet trails from countdown clocks instead of `time % period < dt`, which misfires as the clock grows; the powerup now returns ten seconds after it is picked up, as in `shooter_mp`.
+- **Tooling:** formatting runs on nightly `rustfmt` (locally and in CI), so the import-grouping and field-alignment options in `rustfmt.toml` — ignored by stable — are now applied. `builder` fails when an example's `Cargo.toml` does not parse, instead of silently dropping that game from the playground.
+- **Docs:** `CONFIG.md` documents `engine.tickrate`, that the file is read from `config/config.json` on desktop only, and what `target_fps` caps; the multiplayer guide points at `shooter_mp/src/preset.rs`; `CONTRIBUTING.md` matches the formatter and the CI; every crate has a crate-level doc; stale and broken doc comments are corrected.
 
 ## [0.5.0]
 

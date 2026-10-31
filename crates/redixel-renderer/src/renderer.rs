@@ -1,19 +1,17 @@
 use std::sync::Arc;
 
+use redixel_core::{RedixelError, TextureId};
+use redixel_math::{Color, Mat4, Vec2, Vec3};
 use wgpu::{
     Backends, CommandEncoder, CommandEncoderDescriptor,
     CurrentSurfaceTexture::{Lost, Occluded, Outdated, Suboptimal, Success, Timeout, Validation},
     LoadOp, Operations, PresentMode, RenderPass, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
     RenderPassDescriptor, StoreOp, Surface, SurfaceTexture, TextureView, TextureViewDescriptor,
 };
-
 use winit::{
     dpi::PhysicalSize,
     window::{self, Window},
 };
-
-use redixel_core::{RedixelError, TextureId};
-use redixel_math::{Color, Mat4, Vec2, Vec3};
 
 use crate::{
     batch::{MeshBatch, SpriteBatch},
@@ -30,14 +28,14 @@ const CAMERA_FAR: f32 = 100.0;
 /// and injected at construction time. The renderer never touches the config system.
 #[derive(Debug, Clone)]
 pub struct RendererConfig {
-    pub backends: Backends,
+    pub backends:     Backends,
     pub present_mode: PresentMode,
 }
 
 impl Default for RendererConfig {
     fn default() -> Self {
         Self {
-            backends: Backends::all(),
+            backends:     Backends::all(),
             present_mode: PresentMode::AutoVsync,
         }
     }
@@ -45,7 +43,7 @@ impl Default for RendererConfig {
 
 /// Commands collected during `on_render`, submitted to the GPU in one pass.
 pub struct DrawQueue {
-    pub clear: Color,
+    pub clear:    Color,
     pub batch_2d: SpriteBatch,
     pub batch_3d: MeshBatch,
 }
@@ -56,10 +54,10 @@ pub struct DrawQueue {
 /// 1. The `draw_*` methods (or `draw_queue_mut()`) fill `batch_2d` and `batch_3d`
 /// 2. `render()` flushes the depth-tested 3D batch, then the painter-ordered 2D batch over it, and presents
 pub struct Renderer {
-    device: GpuDevice,
+    device:   GpuDevice,
     pipeline: ShapePipeline,
     textures: TextureRegistry,
-    queue: DrawQueue,
+    queue:    DrawQueue,
 }
 
 impl Renderer {
@@ -122,8 +120,9 @@ impl Renderer {
         (self.device.config.width, self.device.config.height)
     }
 
-    /// Returns a mutable reference to the draw queue.
-    /// Game code queues draw calls here during `on_render`.
+    /// Returns a mutable reference to the draw queue, for callers driving the
+    /// renderer directly. Games never see it: their draw calls reach it as
+    /// `DrawCommand`s dispatched by the runtime.
     pub fn draw_queue_mut(&mut self) -> &mut DrawQueue {
         &mut self.queue
     }
@@ -238,18 +237,18 @@ impl Renderer {
             let mut pass: RenderPass<'_> = encoder.begin_render_pass(&RenderPassDescriptor {
                 label: Some("REDIXEL_RENDER_PASS"),
                 color_attachments: &[Some(RenderPassColorAttachment {
-                    view: &view,
-                    depth_slice: None,
+                    view:           &view,
+                    depth_slice:    None,
                     resolve_target: None,
-                    ops: Operations {
-                        load: LoadOp::Clear(clear),
+                    ops:            Operations {
+                        load:  LoadOp::Clear(clear),
                         store: StoreOp::Store,
                     },
                 })],
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                    view: &self.device.depth_view,
-                    depth_ops: Some(Operations {
-                        load: LoadOp::Clear(1.0),
+                    view:        &self.device.depth_view,
+                    depth_ops:   Some(Operations {
+                        load:  LoadOp::Clear(1.0),
                         store: StoreOp::Store,
                     }),
                     stencil_ops: None,

@@ -1,3 +1,5 @@
+//! Internal build tool: collects each example's `[package.metadata.game]` into the web playground's `games_manifest.json`.
+
 use std::{
     fs, io,
     path::{Path, PathBuf},
@@ -9,10 +11,10 @@ use toml::de;
 /// One example's public metadata, serialized to `dist/games_manifest.json`.
 #[derive(Serialize)]
 struct GameManifest {
-    id: String,
-    title: String,
+    id:          String,
+    title:       String,
     description: String,
-    tags: Vec<String>,
+    tags:        Vec<String>,
 }
 
 /// Mirrors the `[package]` / `[package.metadata.game]` tables of an example's
@@ -24,7 +26,7 @@ struct CargoManifest {
 
 #[derive(Deserialize)]
 struct Package {
-    name: String,
+    name:     String,
     metadata: Option<Metadata>,
 }
 
@@ -35,10 +37,10 @@ struct Metadata {
 
 #[derive(Deserialize)]
 struct GameMetadata {
-    title: String,
+    title:       String,
     description: String,
     #[serde(default)]
-    tags: Vec<String>,
+    tags:        Vec<String>,
 }
 
 /// Scans `examples/*/Cargo.toml` for a `[package.metadata.game]` table and
@@ -62,8 +64,14 @@ fn main() {
             continue;
         };
 
-        let Ok(manifest): Result<CargoManifest, de::Error> = toml::from_str(&content) else {
-            continue;
+        // A manifest that fails to parse would silently drop its game from the playground.
+        let parsed: Result<CargoManifest, de::Error> = toml::from_str(&content);
+        let manifest: CargoManifest = match parsed {
+            Ok(manifest) => manifest,
+            Err(e) => {
+                eprintln!("builder: failed to parse {}: {e}", manifest_path.display());
+                std::process::exit(1);
+            }
         };
 
         let Some(game): Option<GameMetadata> = manifest.package.metadata.and_then(|m: Metadata| m.game) else {
@@ -71,10 +79,10 @@ fn main() {
         };
 
         games.push(GameManifest {
-            id: manifest.package.name,
-            title: game.title,
+            id:          manifest.package.name,
+            title:       game.title,
             description: game.description,
-            tags: game.tags,
+            tags:        game.tags,
         });
     }
 

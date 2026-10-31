@@ -20,34 +20,34 @@ const TIME_WRAP: f32 = 3600.0;
 /// [`PlayerInput::seq`] of `input`, echoed back in every snapshot so the
 /// owning client can reconcile its movement prediction.
 struct ServerAgent {
-    owner: ClientId,
-    pos: Vec2,
-    vel: Vec2,
-    health: i32,
-    shoot_cooldown: f32,
+    owner:            ClientId,
+    pos:              Vec2,
+    vel:              Vec2,
+    health:           i32,
+    shoot_cooldown:   f32,
     rapid_fire_timer: f32,
-    dash_cooldown: f32,
-    dash_timer: f32,
-    weapon: Weapon,
-    input: PlayerInput,
-    input_seq: u32,
+    dash_cooldown:    f32,
+    dash_timer:       f32,
+    weapon:           Weapon,
+    input:            PlayerInput,
+    input_seq:        u32,
 }
 
 impl ServerAgent {
     /// Spawns a fresh agent for `id` at `(x, y)` with the default pistol loadout.
     fn new(id: ClientId, x: f32, y: f32) -> Self {
         Self {
-            owner: id,
-            pos: Vec2::new(x, y),
-            vel: Vec2::ZERO,
-            health: 100,
-            shoot_cooldown: 0.0,
+            owner:            id,
+            pos:              Vec2::new(x, y),
+            vel:              Vec2::ZERO,
+            health:           100,
+            shoot_cooldown:   0.0,
             rapid_fire_timer: 0.0,
-            dash_cooldown: 0.0,
-            dash_timer: 0.0,
-            weapon: Weapon::Pistol,
-            input: PlayerInput::default(),
-            input_seq: 0,
+            dash_cooldown:    0.0,
+            dash_timer:       0.0,
+            weapon:           Weapon::Pistol,
+            input:            PlayerInput::default(),
+            input_seq:        0,
         }
     }
 
@@ -75,18 +75,18 @@ impl ServerAgent {
 
 /// One authoritative bullet in flight.
 struct ServerBullet {
-    pos: Vec2,
-    vel: Vec2,
-    owner: ClientId,
-    weapon: Weapon,
-    life: f32,
+    pos:       Vec2,
+    vel:       Vec2,
+    owner:     ClientId,
+    weapon:    Weapon,
+    life:      f32,
     destroyed: bool,
-    size: f32,
+    size:      f32,
 }
 
 /// The single roaming weapon pickup.
 struct ServerPowerup {
-    pos: Vec2,
+    pos:    Vec2,
     active: bool,
     weapon: Weapon,
 }
@@ -95,30 +95,30 @@ struct ServerPowerup {
 /// Drives everything from `on_fixed_update`; the render callbacks never fire in
 /// headless mode.
 pub struct Server {
-    agents: Vec<ServerAgent>,
-    bullets: Vec<ServerBullet>,
-    powerup: ServerPowerup,
+    agents:          Vec<ServerAgent>,
+    bullets:         Vec<ServerBullet>,
+    powerup:         ServerPowerup,
     powerup_respawn: f32,
-    powerup_cycle: usize,
-    time: f32,
-    effects: Vec<Effect>,
+    powerup_cycle:   usize,
+    time:            f32,
+    effects:         Vec<Effect>,
 }
 
 impl Server {
     /// Creates a server with no players and the first powerup ready.
     pub fn new() -> Self {
         Self {
-            agents: Vec::new(),
-            bullets: Vec::new(),
-            powerup: ServerPowerup {
+            agents:          Vec::new(),
+            bullets:         Vec::new(),
+            powerup:         ServerPowerup {
                 active: true,
                 weapon: Weapon::Shotgun,
-                pos: Vec2::new((ARENA_W - POWERUP_SIZE) / 2.0, 100.0),
+                pos:    Vec2::new((ARENA_W - POWERUP_SIZE) / 2.0, 100.0),
             },
             powerup_respawn: 0.0,
-            powerup_cycle: 0,
-            time: 0.0,
-            effects: Vec::new(),
+            powerup_cycle:   0,
+            time:            0.0,
+            effects:         Vec::new(),
         }
     }
 
@@ -258,8 +258,8 @@ impl Server {
         };
 
         self.effects.push(Effect {
-            kind: EffectKind::PowerupSpawn,
-            pos: V2::of(self.powerup.pos + Vec2::splat(POWERUP_SIZE / 2.0)),
+            kind:  EffectKind::PowerupSpawn,
+            pos:   V2::of(self.powerup.pos + Vec2::splat(POWERUP_SIZE / 2.0)),
             color: (255, 255, 255),
         });
     }
@@ -423,15 +423,15 @@ impl Server {
                 };
 
                 self.effects.push(Effect {
-                    kind: EffectKind::Hit,
-                    pos: V2::of(hit_pos),
+                    kind:  EffectKind::Hit,
+                    pos:   V2::of(hit_pos),
                     color: (255, 122, 122),
                 });
 
                 if dead {
                     self.effects.push(Effect {
-                        kind: EffectKind::Death,
-                        pos: V2::of(hit_pos),
+                        kind:  EffectKind::Death,
+                        pos:   V2::of(hit_pos),
                         color: (255, 96, 96),
                     });
                     self.agents[k].respawn();
@@ -457,8 +457,8 @@ impl Server {
                     self.bullets[i].destroyed = true;
                     self.bullets[j].destroyed = true;
                     self.effects.push(Effect {
-                        kind: EffectKind::BulletImpact,
-                        pos: V2::of(pos_i + Vec2::splat(size_i / 2.0)),
+                        kind:  EffectKind::BulletImpact,
+                        pos:   V2::of(pos_i + Vec2::splat(size_i / 2.0)),
                         color: (255, 255, 168),
                     });
                     break;
@@ -476,13 +476,13 @@ impl Server {
             .iter()
             .map(|a: &ServerAgent| -> AgentState {
                 AgentState {
-                    owner: a.owner,
-                    pos: V2::of(a.pos),
-                    input_seq: a.input_seq,
-                    health: a.health,
-                    weapon: a.weapon,
+                    owner:      a.owner,
+                    pos:        V2::of(a.pos),
+                    input_seq:  a.input_seq,
+                    health:     a.health,
+                    weapon:     a.weapon,
                     rapid_fire: a.rapid_fire_timer > 0.0,
-                    dashing: a.dash_timer > 0.0,
+                    dashing:    a.dash_timer > 0.0,
                 }
             })
             .collect();
@@ -492,8 +492,8 @@ impl Server {
             .iter()
             .map(|b: &ServerBullet| -> BulletState {
                 BulletState {
-                    pos: V2::of(b.pos),
-                    size: b.size,
+                    pos:    V2::of(b.pos),
+                    size:   b.size,
                     weapon: b.weapon,
                 }
             })
@@ -501,7 +501,7 @@ impl Server {
 
         let powerup: Option<PowerupState> = if self.powerup.active {
             Some(PowerupState {
-                pos: V2::of(self.powerup.pos),
+                pos:    V2::of(self.powerup.pos),
                 weapon: self.powerup.weapon,
             })
         } else {

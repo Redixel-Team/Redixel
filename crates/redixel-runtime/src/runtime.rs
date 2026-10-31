@@ -2,10 +2,14 @@ use std::sync::{
     Arc, mpsc,
     mpsc::{Receiver, Sender},
 };
-
 #[cfg(not(target_arch = "wasm32"))]
 use std::time::Duration;
 
+use redixel_core::{Game, RedixelError, game::GameContext, net::NetworkManager};
+#[cfg(feature = "net")]
+use redixel_net::NetConfig;
+use redixel_platform::{WindowManager, window::WindowConfig};
+use redixel_renderer::{Renderer, RendererConfig};
 use winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
@@ -13,12 +17,6 @@ use winit::{
     event_loop::{ActiveEventLoop, EventLoopProxy},
     window::{Window, WindowId},
 };
-
-use redixel_core::{Game, RedixelError, game::GameContext, net::NetworkManager};
-#[cfg(feature = "net")]
-use redixel_net::NetConfig;
-use redixel_platform::{WindowManager, window::WindowConfig};
-use redixel_renderer::{Renderer, RendererConfig};
 
 use crate::{
     context::{Context, DrawCommand, TextureRequest},
@@ -31,14 +29,14 @@ pub const DEFAULT_TICKRATE: f64 = 60.0;
 
 #[derive(Clone)]
 pub struct RuntimeConfig {
-    pub window: WindowConfig,
-    pub renderer: RendererConfig,
+    pub window:     WindowConfig,
+    pub renderer:   RendererConfig,
     pub target_fps: f64,
     /// Fixed-update rate in Hz driving `on_fixed_update` (physics/networking).
-    pub tickrate: f64,
+    pub tickrate:   f64,
     /// Networking configuration. `None` installs a zero-cost no-op network.
     #[cfg(feature = "net")]
-    pub net: Option<NetConfig>,
+    pub net:        Option<NetConfig>,
 }
 
 impl RuntimeConfig {
@@ -78,9 +76,9 @@ impl RuntimeConfig {
             #[cfg(feature = "net")]
             net: None,
             window: WindowConfig {
-                title: String::from("redixel-headless"),
-                width: 0,
-                height: 0,
+                title:      String::from("redixel-headless"),
+                width:      0,
+                height:     0,
                 fullscreen: false,
             },
             renderer: RendererConfig::default(),
@@ -120,7 +118,7 @@ impl RuntimeConfig {
 /// only the rendering callbacks are skipped.
 #[cfg(not(target_arch = "wasm32"))]
 pub struct HeadlessRuntime<G: Game> {
-    sim: SimulationCore<G>,
+    sim:      SimulationCore<G>,
     tickrate: f64,
 }
 
@@ -149,8 +147,7 @@ impl<G: Game> HeadlessRuntime<G> {
     /// Runs `on_start`, then the fixed-update loop until the game calls
     /// `ctx.exit()`. Blocks the calling thread; returns any fatal game error.
     pub fn run(mut self) -> Result<(), RedixelError> {
-        use std::thread::sleep;
-        use std::time::Instant;
+        use std::{thread::sleep, time::Instant};
 
         self.sim.start()?;
 
@@ -192,8 +189,8 @@ type BridgePayload = Result<(Renderer, WindowManager), RedixelError>;
 
 struct RunningState<G: Game> {
     renderer: Renderer,
-    window: WindowManager,
-    sim: SimulationCore<G>,
+    window:   WindowManager,
+    sim:      SimulationCore<G>,
 }
 
 enum AppState<G: Game> {
@@ -205,12 +202,12 @@ enum AppState<G: Game> {
 /// Implements [`ApplicationHandler`] and drives the engine from creation to
 /// shutdown. Owns the application state and the async initialisation bridge.
 pub struct Runtime<G: Game> {
-    state: AppState<G>,
+    state:        AppState<G>,
     pending_game: Option<G>,
-    fatal_error: Option<RedixelError>,
-    bridge_tx: Sender<BridgePayload>,
-    bridge_rx: Receiver<BridgePayload>,
-    config: RuntimeConfig,
+    fatal_error:  Option<RedixelError>,
+    bridge_tx:    Sender<BridgePayload>,
+    bridge_rx:    Receiver<BridgePayload>,
+    config:       RuntimeConfig,
     is_suspended: bool,
 }
 
@@ -229,7 +226,8 @@ impl<G: Game> Runtime<G> {
     }
 
     /// Moves the stored fatal error out of the runtime.
-    /// Called by `redixel::run()` after `run_app` returns.
+    /// Called by `redixel::run_desktop_with` / `run_android_with` after the
+    /// event loop returns.
     pub fn take_error(&mut self) -> Option<RedixelError> {
         self.fatal_error.take()
     }
@@ -529,13 +527,11 @@ impl<G: Game> ApplicationHandler for Runtime<G> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     use mpsc::TryRecvError;
-
     use redixel_core::{GameContext, TextureId};
     use redixel_math::{Color, Vec2};
 
+    use super::*;
     use crate::context::TextureRequest;
 
     struct Dummy;
@@ -549,13 +545,13 @@ mod tests {
     fn mock_config() -> RuntimeConfig {
         RuntimeConfig::windowed(
             WindowConfig {
-                width: 800,
-                height: 600,
+                width:      800,
+                height:     600,
                 fullscreen: false,
-                title: String::from("TEST_TITLE"),
+                title:      String::from("TEST_TITLE"),
             },
             RendererConfig {
-                backends: wgpu::Backends::all(),
+                backends:     wgpu::Backends::all(),
                 present_mode: wgpu::PresentMode::AutoVsync,
             },
             60.0,

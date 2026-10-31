@@ -1,3 +1,5 @@
+//! Linear algebra and colour primitives for the Redixel engine: `Vec2`, `Vec3`, `Mat4` and `Color`.
+
 pub mod color;
 pub mod mat4;
 pub mod vec2;

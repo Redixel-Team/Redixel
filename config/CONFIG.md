@@ -1,14 +1,17 @@
 # Redixel Configuration Guide
 
-This document details the configuration options available for the **Redixel** engine. The configuration is stored in a JSON file (typically `config.json` or `settings.json`) and is loaded at runtime.
+This document details the configuration options available for the **Redixel** engine. The configuration is read at startup from `config/config.json`, resolved **relative to the process's working directory** — so run games from the repository root. Any missing or malformed key falls back to its default.
+
+> **Desktop only.** The browser has no filesystem and mobile apps start in their own working directory, so on Web, Android and iOS the file is never found and every value below uses its default.
 
 ## Structure Overview
 
-The configuration is divided into three main sections:
+The configuration is divided into four main sections:
 
 1.  **[app](#app)**: General application metadata.
-2.  **[window](#window)**: Display and windowing settings.
-3.  **[renderer](#renderer)**: Graphics API and presentation logic.
+2.  **[engine](#engine)**: Simulation timing.
+3.  **[window](#window)**: Display and windowing settings.
+4.  **[renderer](#renderer)**: Graphics API and presentation logic.
 
 ---
 
@@ -16,9 +19,9 @@ The configuration is divided into three main sections:
 
 General application settings.
 
-| Field  | Type   | Description                                                                                            |
-| :----- | :----- | :----------------------------------------------------------------------------------------------------- |
-| `name` | String | The name of the application. This typically appears in the operating system's taskbar or process list. |
+| Field  | Type   | Description                                                                                        |
+| :----- | :----- | :------------------------------------------------------------------------------------------------- |
+| `name` | String | The name of the application, shown in the window title (followed by the live FPS) and the taskbar. |
 
 **Example:**
 
@@ -30,16 +33,34 @@ General application settings.
 
 ---
 
+### `engine`
+
+Settings for the fixed-update simulation loop.
+
+| Field      | Type  | Description                                                                                                                                            |
+| :--------- | :---- | :----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tickrate` | Float | Rate in Hz of `on_fixed_update`, independent of the render framerate (default `60.0`). A networked client adopts the server's tickrate once connected. |
+
+**Example:**
+
+```json
+"engine": {
+    "tickrate": 60.0
+}
+```
+
+---
+
 ### `window`
 
 Settings controlling the application window dimensions and behavior.
 
-| Field        | Type    | Description                                                    |
-| :----------- | :------ | :------------------------------------------------------------- |
-| `width`      | Integer | The initial width of the window in pixels.                     |
-| `height`     | Integer | The initial height of the window in pixels.                    |
-| `fullscreen` | Boolean | `true` to start in fullscreen mode, `false` for windowed mode. |
-| `target_fps` | Float   | The target frames-per-second cap for the update loop.          |
+| Field        | Type    | Description                                                                                                     |
+| :----------- | :------ | :-------------------------------------------------------------------------------------------------------------- |
+| `width`      | Integer | The initial width of the window in pixels.                                                                      |
+| `height`     | Integer | The initial height of the window in pixels.                                                                     |
+| `fullscreen` | Boolean | `true` to start in fullscreen mode, `false` for windowed mode.                                                  |
+| `target_fps` | Float   | Cap on the render loop's frames per second (`0` uncaps it). Ignored on the web, where the browser paces frames. |
 
 **Example:**
 

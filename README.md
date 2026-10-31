@@ -63,7 +63,7 @@ Most of them also run in the [online playground](https://redixel-web.vercel.app/
 
 ## Contributing
 
-To maintain architectural integrity, we enforce strict coding standards and a specific development workflow. Please read our [CONTRIBUTING](./CONTRIBUTING.md) guide before opening a Merge Request.
+To maintain architectural integrity, we enforce strict coding standards and a specific development workflow. Please read our [CONTRIBUTING](./CONTRIBUTING.md) guide before opening a Pull Request.
 
 ## License
 

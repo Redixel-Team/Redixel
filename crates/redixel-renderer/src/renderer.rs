@@ -50,12 +50,11 @@ pub struct DrawQueue {
     pub batch_3d: MeshBatch,
 }
 
-/// High-level renderer. Owns the GPU device, shape pipeline, and sprite batch.
+/// High-level renderer. Owns the GPU device, the 2D and 3D pipelines, and their batches.
 ///
 /// Interaction model:
-/// 1. `begin_frame()` — resets the draw queue, returns a `&mut DrawQueue`
-/// 2. Game code calls `queue.batch.draw_rect(...)` freely
-/// 3. `end_frame()` — flushes the queue and presents the frame
+/// 1. The `draw_*` methods (or `draw_queue_mut()`) fill `batch_2d` and `batch_3d`
+/// 2. `render()` flushes the depth-tested 3D batch, then the painter-ordered 2D batch over it, and presents
 pub struct Renderer {
     device: GpuDevice,
     pipeline: ShapePipeline,

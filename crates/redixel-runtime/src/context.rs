@@ -353,7 +353,7 @@ impl<A: InputAction> GameContext<A> for Context<A> {
         match std::fs::read(path) {
             Ok(bytes) => self.queue_sound(bytes),
             Err(e) => {
-                log::warn!("Failed to read sound '{path}': {e}. It will never resolve.");
+                log::warn!("Failed to read sound '{path}': {e}. It will play silently.");
                 self.reserve_sound_id()
             }
         }

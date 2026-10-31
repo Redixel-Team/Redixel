@@ -189,9 +189,8 @@ impl Default for MusicOptions {
 pub trait AudioManager {
     /// Registers `bytes` for decoding under `id` without blocking the caller.
     ///
-    /// Poll [`clip_state`](Self::clip_state) for completion, though most games
-    /// never need to: a play made against a still-decoding clip starts once it
-    /// resolves.
+    /// [`clip_state`](Self::clip_state) reports when decoding finishes; a play
+    /// made against a still-decoding clip starts once it resolves.
     fn load_clip(&mut self, id: SoundId, bytes: Vec<u8>);
 
     /// The loading state of `id`. An id never passed to

@@ -93,9 +93,9 @@ Phases are grouped by area, not a strict sequence: work lands where it is needed
 **Goal:** Managing memory and assets efficiently.
 
 - [ ] **Asset Manager:** Implement a caching system to load resources once and reference them by ID/Handle ([#77]). _(partial: textures return an opaque `TextureId` — caching, deduplication, unloading, and a generic `Handle<T>` are missing)_
-- [ ] **Async Asset Loading:** Implement non-blocking resource fetching (Promises/Futures) to prevent WASM thread freezing during heavy I/O ([#78]).
+- [ ] **Async Asset Loading:** Implement non-blocking resource fetching (Promises/Futures) to prevent WASM thread freezing during heavy I/O ([#78]). _(partial: sounds decode off the main thread — a decoder thread natively, `decodeAudioData` on the web — but textures still decode on it)_
 - [ ] **Scene Management:** Define a custom file format for saving/loading level data.
-- [x] **Audio Engine:** `redixel-audio` (optional `audio` feature) mixes decoded PCM behind the `AudioManager` trait — `cpal` with the engine's own multi-voice mixer natively, the Web Audio API on the web. `GameContext::play_sound`/`play_music` cover one-shot effects and looping, crossfading music; master and per-channel volume persist through `config.json`. Positional/3D audio stays out of scope until a 3D game needs it.
+- [x] **Audio Engine:** `redixel-audio` (optional `audio` feature) mixes decoded PCM behind the `AudioManager` trait — `cpal` with the engine's own multi-voice mixer natively, the Web Audio API on the web. `GameContext::play_sound`/`play_music` cover one-shot effects and looping, crossfading music; master and per-channel volume persist through `config.json`. Positional/3D audio stays out of scope until a 3D game needs it ([#90]).
 
 ## **Phase 9 — Physics**
 
@@ -149,3 +149,4 @@ Phases are grouped by area, not a strict sequence: work lands where it is needed
 [#84]: https://github.com/Redixel-Team/Redixel/issues/84
 [#88]: https://github.com/Redixel-Team/Redixel/issues/88
 [#89]: https://github.com/Redixel-Team/Redixel/issues/89
+[#90]: https://github.com/Redixel-Team/Redixel/issues/90

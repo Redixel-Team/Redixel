@@ -16,6 +16,8 @@ Redixel uses a pure-Rust pipeline for WebAssembly, requiring no manual HTML or J
 
 > This will automatically compile, generate bindings and start a local server at `http://127.0.0.1:1334`.
 
+> **Audio:** browsers keep audio blocked until the page receives a user gesture, so sound starts on the first key press, click or touch. Music started before then begins at that moment; sound effects played before then are dropped.
+
 ## WebGPU on Linux (Chromium-based browsers)
 
 On Linux, **WebGPU is not fully enabled by default** on Chrome, Edge, Chromium, Opera, or Brave.

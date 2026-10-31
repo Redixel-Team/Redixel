@@ -55,11 +55,11 @@ pub enum Weapon {
 /// input.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
 pub struct PlayerInput {
-    pub seq: u32,
+    pub seq:      u32,
     pub move_dir: V2,
-    pub aim: V2,
-    pub shoot: bool,
-    pub dash: bool,
+    pub aim:      V2,
+    pub shoot:    bool,
+    pub dash:     bool,
 }
 
 /// Authoritative per-agent state broadcast to clients each snapshot. `owner`
@@ -71,27 +71,27 @@ pub struct PlayerInput {
 /// ignores it.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct AgentState {
-    pub owner: ClientId,
-    pub pos: V2,
-    pub input_seq: u32,
-    pub health: i32,
-    pub weapon: Weapon,
+    pub owner:      ClientId,
+    pub pos:        V2,
+    pub input_seq:  u32,
+    pub health:     i32,
+    pub weapon:     Weapon,
     pub rapid_fire: bool,
-    pub dashing: bool,
+    pub dashing:    bool,
 }
 
 /// Authoritative per-bullet state for rendering.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct BulletState {
-    pub pos: V2,
-    pub size: f32,
+    pub pos:    V2,
+    pub size:   f32,
     pub weapon: Weapon,
 }
 
 /// The active powerup pickup; absent from a snapshot when none is available.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct PowerupState {
-    pub pos: V2,
+    pub pos:    V2,
     pub weapon: Weapon,
 }
 
@@ -109,8 +109,8 @@ pub enum EffectKind {
 /// A positioned, pre-colored one-shot cosmetic baked into a snapshot.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Effect {
-    pub kind: EffectKind,
-    pub pos: V2,
+    pub kind:  EffectKind,
+    pub pos:   V2,
     pub color: (u8, u8, u8),
 }
 
@@ -126,8 +126,8 @@ pub struct Effect {
 /// never snap the world backwards.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Snapshot {
-    pub tick: u64,
-    pub agents: Vec<AgentState>,
+    pub tick:    u64,
+    pub agents:  Vec<AgentState>,
     pub bullets: Vec<BulletState>,
     pub powerup: Option<PowerupState>,
 }
@@ -335,41 +335,41 @@ mod tests {
     fn player_input_round_trips() {
         round_trip(&PlayerInput::default());
         round_trip(&PlayerInput {
-            seq: u32::MAX,
+            seq:      u32::MAX,
             move_dir: V2 { x: -1.0, y: 0.5 },
-            aim: V2 { x: 0.0, y: -1.0 },
-            shoot: true,
-            dash: true,
+            aim:      V2 { x: 0.0, y: -1.0 },
+            shoot:    true,
+            dash:     true,
         });
     }
 
     #[test]
     fn snapshot_round_trips_empty_and_populated() {
         round_trip(&Snapshot {
-            tick: 0,
-            agents: Vec::new(),
+            tick:    0,
+            agents:  Vec::new(),
             bullets: Vec::new(),
             powerup: None,
         });
 
         round_trip(&Snapshot {
-            tick: u64::MAX,
-            agents: vec![AgentState {
-                owner: 7,
-                pos: V2 { x: 100.0, y: 200.0 },
-                input_seq: u32::MAX,
-                health: -3,
-                weapon: Weapon::Homing,
+            tick:    u64::MAX,
+            agents:  vec![AgentState {
+                owner:      7,
+                pos:        V2 { x: 100.0, y: 200.0 },
+                input_seq:  u32::MAX,
+                health:     -3,
+                weapon:     Weapon::Homing,
                 rapid_fire: true,
-                dashing: false,
+                dashing:    false,
             }],
             bullets: vec![BulletState {
-                pos: V2 { x: 1.5, y: 2.5 },
-                size: BULLET_SIZE,
+                pos:    V2 { x: 1.5, y: 2.5 },
+                size:   BULLET_SIZE,
                 weapon: Weapon::Shotgun,
             }],
             powerup: Some(PowerupState {
-                pos: V2 { x: 640.0, y: 360.0 },
+                pos:    V2 { x: 640.0, y: 360.0 },
                 weapon: Weapon::Flamethrower,
             }),
         });
@@ -381,13 +381,13 @@ mod tests {
         round_trip(&EffectBatch {
             effects: vec![
                 Effect {
-                    kind: EffectKind::Death,
-                    pos: V2 { x: 10.0, y: 20.0 },
+                    kind:  EffectKind::Death,
+                    pos:   V2 { x: 10.0, y: 20.0 },
                     color: (255, 0, 128),
                 },
                 Effect {
-                    kind: EffectKind::BulletImpact,
-                    pos: V2 { x: -5.0, y: 0.0 },
+                    kind:  EffectKind::BulletImpact,
+                    pos:   V2 { x: -5.0, y: 0.0 },
                     color: (0, 0, 0),
                 },
             ],

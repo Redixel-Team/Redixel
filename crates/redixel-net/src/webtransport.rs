@@ -11,12 +11,11 @@ use std::{
 };
 
 use bytes::Bytes;
-
+use redixel_core::{ClientId, NetworkChannel, NetworkEvent, NetworkManager, NoOpNetwork, SERVER_ID};
 use tokio::{
     runtime::{Builder, Runtime},
     sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel},
 };
-
 use wtransport::{
     ClientConfig, Connection, Endpoint, Identity, RecvStream, SendStream, ServerConfig, VarInt,
     datagram::Datagram,
@@ -28,8 +27,6 @@ use wtransport::{
         error::{InvalidSan, PemLoadError},
     },
 };
-
-use redixel_core::{ClientId, NetworkChannel, NetworkEvent, NetworkManager, NoOpNetwork, SERVER_ID};
 
 use crate::{
     config::{CertSource, HANDSHAKE_TIMEOUT, NetConfig, NetMode},
@@ -76,7 +73,7 @@ type InboundEvent = Inbound<Vec<u8>>;
 /// `payload` is a [`Bytes`] so a broadcast hands every peer a refcount bump
 /// rather than a fresh copy of the message.
 struct Outgoing {
-    target: Target,
+    target:  Target,
     channel: NetworkChannel,
     payload: Bytes,
 }
@@ -256,8 +253,8 @@ async fn make_identity(cert: &CertSource) -> io::Result<Identity> {
 /// `Disconnected`, and never a `Disconnected` for a peer that failed handshake.
 enum Ctrl {
     Ready {
-        client: ClientId,
-        conn: Arc<Connection>,
+        client:      ClientId,
+        conn:        Arc<Connection>,
         reliable_tx: UnboundedSender<Bytes>,
     },
     Closed {
@@ -268,9 +265,9 @@ enum Ctrl {
 /// A live peer as seen by the server's dispatcher. `send_seq` is per-peer so one
 /// client's targeted traffic never advances another's sequence.
 struct ConnHandle {
-    conn: Arc<Connection>,
+    conn:        Arc<Connection>,
     reliable_tx: UnboundedSender<Bytes>,
-    send_seq: u32,
+    send_seq:    u32,
 }
 
 /// Routes one outbound command to the addressed peer(s), reusing `scratch` to
@@ -496,12 +493,12 @@ async fn handshake_server(
 /// via [`wtransport`]. Owns a background tokio runtime bridging its async API
 /// to the engine's synchronous [`redixel_core::NetworkManager`].
 pub struct WebTransportServer {
-    _runtime: Runtime,
-    local_addr: SocketAddr,
-    cert_hash: Option<[u8; 32]>,
-    inbound_rx: UnboundedReceiver<InboundEvent>,
+    _runtime:    Runtime,
+    local_addr:  SocketAddr,
+    cert_hash:   Option<[u8; 32]>,
+    inbound_rx:  UnboundedReceiver<InboundEvent>,
     outbound_tx: UnboundedSender<Outgoing>,
-    queue: InboundQueue<Vec<u8>>,
+    queue:       InboundQueue<Vec<u8>>,
 }
 
 impl WebTransportServer {
@@ -649,7 +646,7 @@ impl NetworkManager for WebTransportServer {
 /// plain atomic load serves them to the game thread without a lock.
 #[derive(Clone)]
 struct ClientShared {
-    rtt: Arc<AtomicU64>,
+    rtt:             Arc<AtomicU64>,
     server_tickrate: Arc<AtomicU64>,
 }
 
@@ -787,13 +784,13 @@ async fn run_client(
 /// latches to `false` and the transport does **not** attempt to reconnect.
 /// Reconnection is the game's call — construct a fresh client.
 pub struct WebTransportClient {
-    _runtime: Runtime,
-    inbound_rx: UnboundedReceiver<InboundEvent>,
-    outbound_tx: UnboundedSender<Outgoing>,
-    queue: InboundQueue<Vec<u8>>,
-    id: Option<ClientId>,
-    connected: bool,
-    rtt: Arc<AtomicU64>,
+    _runtime:        Runtime,
+    inbound_rx:      UnboundedReceiver<InboundEvent>,
+    outbound_tx:     UnboundedSender<Outgoing>,
+    queue:           InboundQueue<Vec<u8>>,
+    id:              Option<ClientId>,
+    connected:       bool,
+    rtt:             Arc<AtomicU64>,
     server_tickrate: Arc<AtomicU64>,
 }
 
@@ -853,7 +850,7 @@ impl WebTransportClient {
             inbound_tx,
             outbound_rx,
             ClientShared {
-                rtt: rtt.clone(),
+                rtt:             rtt.clone(),
                 server_tickrate: server_tickrate.clone(),
             },
         ));
@@ -950,7 +947,10 @@ pub fn build(config: &NetConfig, tickrate: f64) -> Box<dyn NetworkManager> {
         NetMode::Server { bind } => {
             match WebTransportServer::new(*bind, &config.cert, tickrate, config.protocol_id, config.max_clients) {
                 Ok(server) => {
-                    log::info!("WebTransport server listening on {bind} (max {} clients).", config.max_clients.max(1));
+                    log::info!(
+                        "WebTransport server listening on {bind} (max {} clients).",
+                        config.max_clients.max(1)
+                    );
                     if let Some(hash) = server.cert_hash() {
                         log::info!("WebTransport server certificate hash (sha-256): {}", to_hex(&hash));
                     }
@@ -993,16 +993,14 @@ mod tests {
         time::{Duration, Instant},
     };
 
+    use redixel_core::{NetworkChannel, NetworkEvent, NetworkManager, SERVER_ID};
     use wtransport::{
         ClientConfig, Connection, Endpoint, Identity, RecvStream, SendStream, ServerConfig,
         endpoint::{IncomingSession, endpoint_side},
     };
 
-    use redixel_core::{NetworkChannel, NetworkEvent, NetworkManager, SERVER_ID};
-
-    use crate::config::{CertSource, DEFAULT_PROTOCOL_ID, HANDSHAKE_TIMEOUT};
-
     use super::{WebTransportClient, WebTransportServer};
+    use crate::config::{CertSource, DEFAULT_PROTOCOL_ID, HANDSHAKE_TIMEOUT};
 
     const SETTLE_BUDGET: Duration = Duration::from_secs(HANDSHAKE_TIMEOUT.as_secs() * 3);
     const REJECT_BUDGET: Duration = Duration::from_secs(3);
@@ -1088,7 +1086,7 @@ mod tests {
             bind,
             &CertSource::Pem {
                 cert: cert_path.clone(),
-                key: key_path.clone(),
+                key:  key_path.clone(),
             },
             60.0,
             DEFAULT_PROTOCOL_ID,
@@ -1148,10 +1146,10 @@ mod tests {
 
     #[allow(dead_code)]
     struct StalledPeer {
-        runtime: tokio::runtime::Runtime,
-        endpoint: wtransport::Endpoint<wtransport::endpoint::endpoint_side::Client>,
+        runtime:    tokio::runtime::Runtime,
+        endpoint:   wtransport::Endpoint<wtransport::endpoint::endpoint_side::Client>,
         connection: wtransport::Connection,
-        streams: (wtransport::SendStream, wtransport::RecvStream),
+        streams:    (wtransport::SendStream, wtransport::RecvStream),
     }
 
     fn stall_handshake(addr: SocketAddr) -> StalledPeer {
@@ -1225,8 +1223,8 @@ mod tests {
 
     struct MuteServer {
         _runtime: tokio::runtime::Runtime,
-        addr: SocketAddr,
-        hung_up: Arc<AtomicBool>,
+        addr:     SocketAddr,
+        hung_up:  Arc<AtomicBool>,
     }
 
     fn mute_server() -> MuteServer {

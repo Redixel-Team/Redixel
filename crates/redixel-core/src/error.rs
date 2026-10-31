@@ -1,14 +1,11 @@
 use thiserror::Error;
-use winit::error::{EventLoopError, RequestError};
-
-#[cfg(feature = "wgpu")]
-use wgpu::{CreateSurfaceError, RequestAdapterError, RequestDeviceError};
-
-#[cfg(all(target_os = "windows", feature = "wgpu"))]
-use wgpu::rwh::HandleError;
-
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsValue;
+#[cfg(all(target_os = "windows", feature = "wgpu"))]
+use wgpu::rwh::HandleError;
+#[cfg(feature = "wgpu")]
+use wgpu::{CreateSurfaceError, RequestAdapterError, RequestDeviceError};
+use winit::error::{EventLoopError, RequestError};
 
 #[derive(Error, Debug)]
 #[non_exhaustive]

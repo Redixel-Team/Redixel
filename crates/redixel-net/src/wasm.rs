@@ -7,16 +7,13 @@ use std::{
 };
 
 use js_sys::{Function, Promise, Uint8Array};
-
+use redixel_core::{ClientId, NetworkChannel, NetworkEvent, NetworkManager, NoOpNetwork, SERVER_ID};
 use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::{JsFuture, spawn_local};
-
 use web_sys::{
     ReadableStreamDefaultReader, WebTransport, WebTransportBidirectionalStream, WebTransportDatagramDuplexStream,
     WebTransportHash, WebTransportOptions, Window, WorkerGlobalScope, WritableStreamDefaultWriter,
 };
-
-use redixel_core::{ClientId, NetworkChannel, NetworkEvent, NetworkManager, NoOpNetwork, SERVER_ID};
 
 use crate::{
     config::{HANDSHAKE_TIMEOUT, NetConfig, NetMode},
@@ -59,9 +56,9 @@ type Dead = Rc<Cell<bool>>;
 /// reference, not the stream itself.
 #[derive(Clone)]
 struct Writers {
-    reliable: WritableStreamDefaultWriter,
+    reliable:        WritableStreamDefaultWriter,
     datagram_writer: WritableStreamDefaultWriter,
-    datagrams: WebTransportDatagramDuplexStream,
+    datagrams:       WebTransportDatagramDuplexStream,
 }
 
 /// Builds the `WebTransportOptions` pinning `hash` via
@@ -420,18 +417,18 @@ async fn connect_wasm(
 /// runtime here: `spawn_local` tasks and the synchronous [`NetworkManager`]
 /// calls interleave on the same thread.
 pub struct WasmWebTransportClient {
-    mailbox: Mailbox,
-    writers: Rc<RefCell<Option<Writers>>>,
-    outbound_reliable: Vec<Vec<u8>>,
+    mailbox:             Mailbox,
+    writers:             Rc<RefCell<Option<Writers>>>,
+    outbound_reliable:   Vec<Vec<u8>>,
     outbound_unreliable: Vec<Vec<u8>>,
-    reliable_queue: SendQueue,
-    pump_running: Rc<Cell<bool>>,
-    dead: Dead,
-    queue: InboundQueue<Vec<u8>>,
-    id: Option<ClientId>,
-    connected: bool,
-    server_tickrate: Rc<Cell<f64>>,
-    send_seq: u32,
+    reliable_queue:      SendQueue,
+    pump_running:        Rc<Cell<bool>>,
+    dead:                Dead,
+    queue:               InboundQueue<Vec<u8>>,
+    id:                  Option<ClientId>,
+    connected:           bool,
+    server_tickrate:     Rc<Cell<f64>>,
+    send_seq:            u32,
 }
 
 impl WasmWebTransportClient {

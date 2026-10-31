@@ -1,11 +1,10 @@
 use std::sync::Arc;
 
+use redixel_core::RedixelError;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsCast;
-
 #[cfg(not(target_arch = "wasm32"))]
 use winit::dpi::LogicalSize;
-
 use winit::{
     dpi::PhysicalSize,
     event::WindowEvent,
@@ -13,13 +12,11 @@ use winit::{
     window::{Window, WindowAttributes},
 };
 
-use redixel_core::RedixelError;
-
 #[derive(Debug, Clone)]
 pub struct WindowConfig {
-    pub title: String,
-    pub width: u32,
-    pub height: u32,
+    pub title:      String,
+    pub width:      u32,
+    pub height:     u32,
     pub fullscreen: bool,
 }
 
@@ -32,7 +29,7 @@ pub struct WindowManager {
     window: Arc<dyn Window>,
     // The browser tab's title belongs to the host page, so the web build never reads this.
     #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
-    title: String,
+    title:  String,
 }
 
 impl WindowManager {
@@ -41,7 +38,7 @@ impl WindowManager {
 
         Ok(Self {
             window: Arc::from(event_loop.create_window(attrs)?),
-            title: config.title.clone(),
+            title:  config.title.clone(),
         })
     }
 
@@ -65,7 +62,9 @@ impl WindowManager {
     pub fn set_title_stats(&self, fps: f64, rtt_ms: Option<f64>) {
         #[cfg(not(target_arch = "wasm32"))]
         match rtt_ms {
-            Some(ms) => self.window.set_title(&format!("{} — {fps:.0} FPS — {ms:.0} ms", self.title)),
+            Some(ms) => self
+                .window
+                .set_title(&format!("{} — {fps:.0} FPS — {ms:.0} ms", self.title)),
             None => self.window.set_title(&format!("{} — {fps:.0} FPS", self.title)),
         }
     }

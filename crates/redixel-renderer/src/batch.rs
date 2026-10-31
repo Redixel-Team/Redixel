@@ -1,7 +1,6 @@
-use wgpu::{Buffer, BufferDescriptor, BufferUsages, Device, IndexFormat, Queue, RenderPass};
-
 use redixel_core::TextureId;
 use redixel_math::{Color, Vec2, Vec3};
+use wgpu::{Buffer, BufferDescriptor, BufferUsages, Device, IndexFormat, Queue, RenderPass};
 
 use crate::{pipeline::Vertex, texture::TextureRegistry};
 
@@ -32,23 +31,23 @@ fn quad_vertices(position: Vec2, size: Vec2, color: Color, uvs: [[f32; 2]; 4]) -
     [
         Vertex {
             position: [x0, y0, 0.0],
-            color: c,
-            uv: uvs[0],
+            color:    c,
+            uv:       uvs[0],
         },
         Vertex {
             position: [x1, y0, 0.0],
-            color: c,
-            uv: uvs[1],
+            color:    c,
+            uv:       uvs[1],
         },
         Vertex {
             position: [x0, y1, 0.0],
-            color: c,
-            uv: uvs[2],
+            color:    c,
+            uv:       uvs[2],
         },
         Vertex {
             position: [x1, y1, 0.0],
-            color: c,
-            uv: uvs[3],
+            color:    c,
+            uv:       uvs[3],
         },
     ]
 }
@@ -60,18 +59,18 @@ fn triangle_vertices(p1: Vec2, p2: Vec2, p3: Vec2, color: Color) -> [Vertex; 3] 
     [
         Vertex {
             position: [p1.x, p1.y, 0.0],
-            color: c,
-            uv: SOLID_UVS[0],
+            color:    c,
+            uv:       SOLID_UVS[0],
         },
         Vertex {
             position: [p2.x, p2.y, 0.0],
-            color: c,
-            uv: SOLID_UVS[0],
+            color:    c,
+            uv:       SOLID_UVS[0],
         },
         Vertex {
             position: [p3.x, p3.y, 0.0],
-            color: c,
-            uv: SOLID_UVS[0],
+            color:    c,
+            uv:       SOLID_UVS[0],
         },
     ]
 }
@@ -85,8 +84,8 @@ fn triangle_vertices_3d(points: [Vec3; 3], uvs: [Vec2; 3], color: Color) -> [Ver
 
     std::array::from_fn(|i: usize| Vertex {
         position: points[i].to_array(),
-        color: c,
-        uv: [uvs[i].x, uvs[i].y],
+        color:    c,
+        uv:       [uvs[i].x, uvs[i].y],
     })
 }
 
@@ -95,8 +94,8 @@ fn triangle_vertices_3d(points: [Vec3; 3], uvs: [Vec2; 3], color: Color) -> [Ver
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct DrawRun {
     texture: Option<TextureId>,
-    start: u32,
-    end: u32,
+    start:   u32,
+    end:     u32,
 }
 
 /// Geometry accumulated on the CPU during a frame.
@@ -106,8 +105,8 @@ struct DrawRun {
 #[derive(Default)]
 struct Geometry {
     vertices: Vec<Vertex>,
-    indices: Vec<u32>,
-    runs: Vec<DrawRun>,
+    indices:  Vec<u32>,
+    runs:     Vec<DrawRun>,
 }
 
 impl Geometry {
@@ -142,18 +141,18 @@ impl Geometry {
 
 fn create_vertex_buffer(device: &Device, label: &str, vertices: usize) -> Buffer {
     device.create_buffer(&BufferDescriptor {
-        label: Some(&format!("{label}_VB")),
-        size: (vertices * std::mem::size_of::<Vertex>()) as u64,
-        usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
+        label:              Some(&format!("{label}_VB")),
+        size:               (vertices * std::mem::size_of::<Vertex>()) as u64,
+        usage:              BufferUsages::VERTEX | BufferUsages::COPY_DST,
         mapped_at_creation: false,
     })
 }
 
 fn create_index_buffer(device: &Device, label: &str, indices: usize) -> Buffer {
     device.create_buffer(&BufferDescriptor {
-        label: Some(&format!("{label}_IB")),
-        size: (indices * std::mem::size_of::<u32>()) as u64,
-        usage: BufferUsages::INDEX | BufferUsages::COPY_DST,
+        label:              Some(&format!("{label}_IB")),
+        size:               (indices * std::mem::size_of::<u32>()) as u64,
+        usage:              BufferUsages::INDEX | BufferUsages::COPY_DST,
         mapped_at_creation: false,
     })
 }
@@ -164,12 +163,12 @@ fn create_index_buffer(device: &Device, label: &str, indices: usize) -> Buffer {
 /// nothing up front: buffers start empty and grow to fit whatever is drawn, so
 /// nothing is ever silently dropped.
 struct GeometryBuffers {
-    label: &'static str,
-    vertex_buffer: Buffer,
-    index_buffer: Buffer,
+    label:           &'static str,
+    vertex_buffer:   Buffer,
+    index_buffer:    Buffer,
     vertex_capacity: usize,
-    index_capacity: usize,
-    geometry: Geometry,
+    index_capacity:  usize,
+    geometry:        Geometry,
 }
 
 impl GeometryBuffers {
@@ -405,8 +404,8 @@ mod tests {
                 projection.cols[1][1] * vertices[i].position[1] + projection.cols[3][1],
                 0.0,
             ],
-            color: vertices[i].color,
-            uv: vertices[i].uv,
+            color:    vertices[i].color,
+            uv:       vertices[i].uv,
         })
     }
 

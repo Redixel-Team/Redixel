@@ -211,19 +211,22 @@ impl NetworkManager for NoOpNetwork {
 /// ```
 #[derive(Debug, Clone)]
 pub struct SequenceBuffer<T> {
-    slots: Box<[Slot<T>]>,
+    slots:    Box<[Slot<T>]>,
     capacity: u64,
 }
 
 #[derive(Debug, Clone)]
 struct Slot<T> {
-    seq: Option<u64>,
+    seq:   Option<u64>,
     value: Option<T>,
 }
 
 impl<T> Default for Slot<T> {
     fn default() -> Self {
-        Slot { seq: None, value: None }
+        Slot {
+            seq:   None,
+            value: None,
+        }
     }
 }
 
@@ -239,7 +242,7 @@ impl<T> SequenceBuffer<T> {
         slots.resize_with(capacity, Slot::default);
 
         Self {
-            slots: slots.into_boxed_slice(),
+            slots:    slots.into_boxed_slice(),
             capacity: capacity as u64,
         }
     }

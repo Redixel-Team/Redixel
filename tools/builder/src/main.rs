@@ -11,10 +11,10 @@ use toml::de;
 /// One example's public metadata, serialized to `dist/games_manifest.json`.
 #[derive(Serialize)]
 struct GameManifest {
-    id: String,
-    title: String,
+    id:          String,
+    title:       String,
     description: String,
-    tags: Vec<String>,
+    tags:        Vec<String>,
 }
 
 /// Mirrors the `[package]` / `[package.metadata.game]` tables of an example's
@@ -26,7 +26,7 @@ struct CargoManifest {
 
 #[derive(Deserialize)]
 struct Package {
-    name: String,
+    name:     String,
     metadata: Option<Metadata>,
 }
 
@@ -37,10 +37,10 @@ struct Metadata {
 
 #[derive(Deserialize)]
 struct GameMetadata {
-    title: String,
+    title:       String,
     description: String,
     #[serde(default)]
-    tags: Vec<String>,
+    tags:        Vec<String>,
 }
 
 /// Scans `examples/*/Cargo.toml` for a `[package.metadata.game]` table and
@@ -79,10 +79,10 @@ fn main() {
         };
 
         games.push(GameManifest {
-            id: manifest.package.name,
-            title: game.title,
+            id:          manifest.package.name,
+            title:       game.title,
             description: game.description,
-            tags: game.tags,
+            tags:        game.tags,
         });
     }
 

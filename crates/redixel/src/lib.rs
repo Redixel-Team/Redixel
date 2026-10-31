@@ -2,13 +2,11 @@
 
 use std::sync::RwLockReadGuard;
 
-use winit::event_loop::{ControlFlow, EventLoop};
-
 use redixel_core::{Game, RedixelError};
 use redixel_platform::window::WindowConfig;
 use redixel_renderer::RendererConfig;
 use redixel_runtime::{DEFAULT_TICKRATE, EngineSettings, RawBackend, RawPresentMode, Runtime, RuntimeConfig};
-
+use winit::event_loop::{ControlFlow, EventLoop};
 #[cfg(target_os = "android")]
 use winit::platform::android::activity::AndroidApp;
 
@@ -22,13 +20,10 @@ pub mod prelude {
         ClientId, Game, GameContext, InputAction, InputSource, KeyCode, KeyState, MouseButton, NetworkChannel,
         NetworkEvent, NetworkManager, RedixelError, SERVER_ID, SequenceBuffer, TextureId,
     };
-
     pub use redixel_math::{Color, Mat4, Vec2, Vec3};
-    pub use redixel_runtime::RuntimeConfig;
-
     #[cfg(feature = "net")]
     pub use redixel_net::{CertSource, DEFAULT_PROTOCOL_ID, NetConfig, NetMode};
-
+    pub use redixel_runtime::RuntimeConfig;
     #[cfg(not(target_arch = "wasm32"))]
     pub use redixel_runtime::{HeadlessRuntime, run_headless};
 }
@@ -42,13 +37,13 @@ pub fn build_config() -> RuntimeConfig {
 
     RuntimeConfig::windowed(
         WindowConfig {
-            width: settings.get_path("window.width", 1280),
-            height: settings.get_path("window.height", 720),
+            width:      settings.get_path("window.width", 1280),
+            height:     settings.get_path("window.height", 720),
             fullscreen: settings.get_path("window.fullscreen", false),
-            title: settings.get_path("app.name", String::from("Redixel")),
+            title:      settings.get_path("app.name", String::from("Redixel")),
         },
         RendererConfig {
-            backends: settings.get_path("renderer.backend", RawBackend(0)).into(),
+            backends:     settings.get_path("renderer.backend", RawBackend(0)).into(),
             present_mode: settings.get_path("renderer.present_mode", RawPresentMode(0)).into(),
         },
         settings.get_path("window.target_fps", 60.0),

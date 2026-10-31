@@ -62,7 +62,7 @@ enum Action {
 
 #[derive(Default)]
 struct Sprite {
-    rotation: f32,
+    rotation:  f32,
     crate_tex: Option<TextureId>,
     heart_tex: Option<TextureId>,
 }

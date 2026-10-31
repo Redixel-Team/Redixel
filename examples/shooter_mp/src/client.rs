@@ -139,10 +139,10 @@ struct PredictedTick {
 /// [`Client::decay_render_error`]), so a correction glides instead of
 /// popping.
 struct Prediction {
-    pos: Vec2,
-    vel: Vec2,
+    pos:          Vec2,
+    vel:          Vec2,
     render_error: Vec2,
-    history: VecDeque<PredictedTick>,
+    history:      VecDeque<PredictedTick>,
 }
 
 impl Prediction {
@@ -186,40 +186,40 @@ impl Prediction {
 /// [`interpolated_world`](Self::interpolated_world)), holding only local
 /// cosmetic state (particles, shake, timers) beyond that.
 pub struct Client {
-    latest: Option<Snapshot>,
-    snapshots: VecDeque<Snapshot>,
-    render_tick: Option<f64>,
-    last_tick: Option<u64>,
-    prediction: Option<Prediction>,
-    next_input_seq: u32,
-    fx: Effects,
-    time: f32,
-    local: Option<ClientId>,
-    prev_dashing: HashMap<ClientId, bool>,
-    prev_health: HashMap<ClientId, i32>,
+    latest:               Option<Snapshot>,
+    snapshots:            VecDeque<Snapshot>,
+    render_tick:          Option<f64>,
+    last_tick:            Option<u64>,
+    prediction:           Option<Prediction>,
+    next_input_seq:       u32,
+    fx:                   Effects,
+    time:                 f32,
+    local:                Option<ClientId>,
+    prev_dashing:         HashMap<ClientId, bool>,
+    prev_health:          HashMap<ClientId, i32>,
     local_shoot_cooldown: f32,
-    afterimage_clock: f32,
-    trail_clock: f32,
+    afterimage_clock:     f32,
+    trail_clock:          f32,
 }
 
 impl Client {
     /// Creates a fresh, unconnected client.
     pub fn new() -> Self {
         Self {
-            latest: None,
-            snapshots: VecDeque::new(),
-            render_tick: None,
-            last_tick: None,
-            prediction: None,
-            next_input_seq: 1,
-            fx: Effects::new(),
-            time: 0.0,
-            local: None,
-            prev_dashing: HashMap::new(),
-            prev_health: HashMap::new(),
+            latest:               None,
+            snapshots:            VecDeque::new(),
+            render_tick:          None,
+            last_tick:            None,
+            prediction:           None,
+            next_input_seq:       1,
+            fx:                   Effects::new(),
+            time:                 0.0,
+            local:                None,
+            prev_dashing:         HashMap::new(),
+            prev_health:          HashMap::new(),
             local_shoot_cooldown: 0.0,
-            afterimage_clock: 0.0,
-            trail_clock: 0.0,
+            afterimage_clock:     0.0,
+            trail_clock:          0.0,
         }
     }
 
@@ -799,13 +799,13 @@ impl Game for Client {
                 for bullet in world.bullets.iter() {
                     let (r, g, b_c): (u8, u8, u8) = weapon_color(bullet.weapon);
                     self.fx.spawn_burst(ParticleProps {
-                        pos: bullet.pos.vec() + Vec2::splat(bullet.size / 2.0),
+                        pos:   bullet.pos.vec() + Vec2::splat(bullet.size / 2.0),
                         color: (r, g, b_c),
                         count: 1,
                         speed: 20.0,
-                        seed: self.time + bullet.pos.x,
-                        life: 0.2,
-                        size: bullet.size * 0.8,
+                        seed:  self.time + bullet.pos.x,
+                        life:  0.2,
+                        size:  bullet.size * 0.8,
                     });
                 }
             }
@@ -906,7 +906,6 @@ impl Game for Client {
 #[cfg(test)]
 mod tests {
     use super::*;
-
     use crate::proto::{BulletState, Weapon};
 
     const TICK: f32 = 1.0 / 60.0;
@@ -915,13 +914,13 @@ mod tests {
         Snapshot {
             tick,
             agents: vec![AgentState {
-                owner: 1,
-                pos: V2 { x: agent_x, y: 0.0 },
-                input_seq: 0,
-                health: 100,
-                weapon: Weapon::Pistol,
+                owner:      1,
+                pos:        V2 { x: agent_x, y: 0.0 },
+                input_seq:  0,
+                health:     100,
+                weapon:     Weapon::Pistol,
                 rapid_fire: false,
-                dashing: false,
+                dashing:    false,
             }],
             bullets,
             powerup: None,

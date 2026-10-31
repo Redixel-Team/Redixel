@@ -1,26 +1,17 @@
 /// Implementation detail of [`entry_point!`](crate::entry_point). Not public API.
 #[doc(hidden)]
 pub mod __private {
-    #[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
-    use env_logger::{Builder, Env};
-
     #[cfg(target_os = "android")]
     use android_logger::{Config, init_once};
+    #[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
+    use env_logger::{Builder, Env};
+    pub use log;
     #[cfg(target_arch = "wasm32")]
     use log::Level;
     #[cfg(target_os = "android")]
     use log::LevelFilter;
-    #[cfg(target_os = "android")]
-    use winit::platform::android::activity::WindowManagerFlags;
-
     #[cfg(target_arch = "wasm32")]
     use redixel_core::RedixelError;
-
-    pub use log;
-
-    #[cfg(target_os = "android")]
-    pub use winit::platform::android::activity::AndroidApp;
-
     /// `#[wasm_bindgen]` writes its runtime paths as `wasm_bindgen::…`, so the
     /// crate must be in scope under that exact name where the macro expands; the
     /// attribute takes a second name so both can be imported there.
@@ -28,6 +19,10 @@ pub mod __private {
     pub use wasm_bindgen;
     #[cfg(target_arch = "wasm32")]
     pub use wasm_bindgen::prelude::wasm_bindgen as wasm_bindgen_start;
+    #[cfg(target_os = "android")]
+    pub use winit::platform::android::activity::AndroidApp;
+    #[cfg(target_os = "android")]
+    use winit::platform::android::activity::WindowManagerFlags;
 
     /// `try_init`, since a logger already being installed is the host's
     /// preference rather than a startup failure.

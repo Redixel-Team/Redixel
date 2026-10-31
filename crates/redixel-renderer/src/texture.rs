@@ -1,7 +1,7 @@
 use std::io::Cursor;
 
 use image::{DynamicImage, ImageReader, Limits, RgbaImage};
-
+use redixel_core::{RedixelError, TextureId};
 use wgpu::{
     AddressMode, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
     BindGroupLayoutEntry, BindingResource, BindingType, Device, Extent3d, FilterMode, Origin3d, Queue, Sampler,
@@ -9,8 +9,6 @@ use wgpu::{
     TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureView,
     TextureViewDescriptor, TextureViewDimension,
 };
-
-use redixel_core::{RedixelError, TextureId};
 
 const RGBA_BYTES_PER_TEXEL: u32 = 4;
 const CHECKERBOARD_SIZE: u32 = 16;
@@ -47,7 +45,7 @@ fn checkerboard_rgba(size: u32, cell: u32) -> Vec<u8> {
 /// sequentially. A slot stays `None` when its image failed to decode, costing
 /// a warning and a checkerboard rather than a dead frame.
 pub struct TextureRegistry {
-    layout: BindGroupLayout,
+    layout:  BindGroupLayout,
     sampler: Sampler,
     default: BindGroup,
     missing: BindGroup,
@@ -60,23 +58,23 @@ impl TextureRegistry {
     /// exactly on 1.0 from wrapping to the opposite edge.
     pub fn new(device: &Device, queue: &Queue) -> Self {
         let layout: BindGroupLayout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            label: Some("REDIXEL_TEXTURE_BIND_GROUP_LAYOUT"),
+            label:   Some("REDIXEL_TEXTURE_BIND_GROUP_LAYOUT"),
             entries: &[
                 BindGroupLayoutEntry {
-                    binding: 0,
+                    binding:    0,
                     visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Texture {
-                        sample_type: TextureSampleType::Float { filterable: true },
+                    ty:         BindingType::Texture {
+                        sample_type:    TextureSampleType::Float { filterable: true },
                         view_dimension: TextureViewDimension::D2,
-                        multisampled: false,
+                        multisampled:   false,
                     },
-                    count: None,
+                    count:      None,
                 },
                 BindGroupLayoutEntry {
-                    binding: 1,
+                    binding:    1,
                     visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                    count: None,
+                    ty:         BindingType::Sampler(SamplerBindingType::Filtering),
+                    count:      None,
                 },
             ],
         });
@@ -239,15 +237,15 @@ impl TextureRegistry {
 
         queue.write_texture(
             TexelCopyTextureInfo {
-                texture: &texture,
+                texture:   &texture,
                 mip_level: 0,
-                origin: Origin3d::ZERO,
-                aspect: TextureAspect::All,
+                origin:    Origin3d::ZERO,
+                aspect:    TextureAspect::All,
             },
             texels,
             TexelCopyBufferLayout {
-                offset: 0,
-                bytes_per_row: Some(width * RGBA_BYTES_PER_TEXEL),
+                offset:         0,
+                bytes_per_row:  Some(width * RGBA_BYTES_PER_TEXEL),
                 rows_per_image: Some(height),
             },
             size,
@@ -260,11 +258,11 @@ impl TextureRegistry {
             layout,
             entries: &[
                 BindGroupEntry {
-                    binding: 0,
+                    binding:  0,
                     resource: BindingResource::TextureView(&view),
                 },
                 BindGroupEntry {
-                    binding: 1,
+                    binding:  1,
                     resource: BindingResource::Sampler(sampler),
                 },
             ],

@@ -1,6 +1,5 @@
-use winit::{event::MouseButton, keyboard::KeyCode};
-
 use redixel_math::{Color, Vec2, Vec3};
+use winit::{event::MouseButton, keyboard::KeyCode};
 
 use crate::{InputAction, InputSource, RedixelError, net::NetworkManager, texture::TextureId};
 

@@ -1,15 +1,14 @@
 use std::collections::{HashMap, HashSet};
 
-use winit::{
-    event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent},
-    keyboard::{KeyCode, PhysicalKey},
-};
-
 use redixel_core::{
     game::{InputBind, InputQuery},
     input::{InputAction, InputSource, KeyState},
 };
 use redixel_math::Vec2;
+use winit::{
+    event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent},
+    keyboard::{KeyCode, PhysicalKey},
+};
 
 /// Owns all input state for the current frame and the action→source bindings.
 ///
@@ -23,31 +22,31 @@ use redixel_math::Vec2;
 /// This manager utilizes a Double Buffer strategy to prevent "Phantom Clicks"
 /// (where rapid press/release events within the same frame are swallowed).
 pub struct InputManager<A: InputAction> {
-    key_states: HashMap<KeyCode, KeyState>,
-    mouse_states: HashMap<MouseButton, KeyState>,
-    mouse_position: Option<Vec2>,
-    pending_keys: Vec<(KeyCode, ElementState)>,
-    pending_mouse: Vec<(MouseButton, ElementState)>,
-    deferred_key_releases: Vec<(KeyCode, ElementState)>,
+    key_states:              HashMap<KeyCode, KeyState>,
+    mouse_states:            HashMap<MouseButton, KeyState>,
+    mouse_position:          Option<Vec2>,
+    pending_keys:            Vec<(KeyCode, ElementState)>,
+    pending_mouse:           Vec<(MouseButton, ElementState)>,
+    deferred_key_releases:   Vec<(KeyCode, ElementState)>,
     deferred_mouse_releases: Vec<(MouseButton, ElementState)>,
-    scroll_accumulator: Vec2,
-    scroll_delta: Vec2,
-    bindings: HashMap<A, HashSet<InputSource>>,
+    scroll_accumulator:      Vec2,
+    scroll_delta:            Vec2,
+    bindings:                HashMap<A, HashSet<InputSource>>,
 }
 
 impl<A: InputAction> InputManager<A> {
     pub fn new() -> Self {
         Self {
-            key_states: HashMap::new(),
-            mouse_states: HashMap::new(),
-            mouse_position: None,
-            pending_keys: Vec::new(),
-            pending_mouse: Vec::new(),
-            deferred_key_releases: Vec::new(),
+            key_states:              HashMap::new(),
+            mouse_states:            HashMap::new(),
+            mouse_position:          None,
+            pending_keys:            Vec::new(),
+            pending_mouse:           Vec::new(),
+            deferred_key_releases:   Vec::new(),
             deferred_mouse_releases: Vec::new(),
-            scroll_accumulator: Vec2::ZERO,
-            scroll_delta: Vec2::ZERO,
-            bindings: HashMap::new(),
+            scroll_accumulator:      Vec2::ZERO,
+            scroll_delta:            Vec2::ZERO,
+            bindings:                HashMap::new(),
         }
     }
 
@@ -269,8 +268,9 @@ impl<A: InputAction> InputBind<A> for InputManager<A> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use winit::event::MouseButton;
+
+    use super::*;
 
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     enum Action {
@@ -286,9 +286,9 @@ mod tests {
         };
 
         WindowEvent::KeyboardInput {
-            device_id: None,
+            device_id:    None,
             is_synthetic: false,
-            event: KeyEvent {
+            event:        KeyEvent {
                 physical_key: PhysicalKey::Code(code),
                 logical_key: Key::Unidentified(NativeKey::Unidentified),
                 text: None,
@@ -314,17 +314,17 @@ mod tests {
     fn scroll_event(x: f32, y: f32) -> WindowEvent {
         WindowEvent::MouseWheel {
             device_id: None,
-            delta: MouseScrollDelta::LineDelta(x, y),
-            phase: winit::event::TouchPhase::Moved,
+            delta:     MouseScrollDelta::LineDelta(x, y),
+            phase:     winit::event::TouchPhase::Moved,
         }
     }
 
     fn pointer_event(x: f64, y: f64) -> WindowEvent {
         WindowEvent::PointerMoved {
             device_id: None,
-            position: winit::dpi::PhysicalPosition::new(x, y),
-            primary: true,
-            source: winit::event::PointerSource::Mouse,
+            position:  winit::dpi::PhysicalPosition::new(x, y),
+            primary:   true,
+            source:    winit::event::PointerSource::Mouse,
         }
     }
 

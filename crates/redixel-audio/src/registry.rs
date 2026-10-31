@@ -1,6 +1,17 @@
 //! Per-handle decode state shared by the native and web backends.
 
-use redixel_core::{ClipState, SoundId};
+use redixel_core::SoundId;
+
+/// Loading state of a clip.
+///
+/// A clip is `Pending` from the moment its bytes reach the backend until
+/// decoding resolves. A `Failed` clip plays silently forever after.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ClipState {
+    Pending,
+    Ready,
+    Failed,
+}
 
 /// Every clip a backend was asked to load, indexed by [`SoundId`].
 ///

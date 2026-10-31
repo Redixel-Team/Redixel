@@ -37,7 +37,7 @@ pub fn build(config: &AudioConfig) -> Box<dyn AudioManager> {
             Ok(manager) => Box::new(manager),
             Err(e) => {
                 log::error!("Failed to start native audio output: {e}. Audio will be silent.");
-                Box::new(NoOpAudio::new(*config))
+                Box::new(NoOpAudio)
             }
         }
     }
@@ -48,7 +48,7 @@ pub fn build(config: &AudioConfig) -> Box<dyn AudioManager> {
             Ok(manager) => Box::new(manager),
             Err(e) => {
                 log::error!("Failed to create the Web Audio context: {e:?}. Audio will be silent.");
-                Box::new(NoOpAudio::new(*config))
+                Box::new(NoOpAudio)
             }
         }
     }

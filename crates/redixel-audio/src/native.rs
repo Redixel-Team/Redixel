@@ -20,7 +20,7 @@ use std::{
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use redixel_core::{
-    AudioChannel, AudioConfig, AudioManager, ClipState, MusicOptions, RedixelError, SoundId,
+    AudioChannel, AudioConfig, AudioManager, MusicOptions, RedixelError, SoundId,
     audio::{clamp_fade, clamp_pitch, clamp_volume},
 };
 use rtrb::{Consumer, Producer, RingBuffer};
@@ -39,7 +39,7 @@ use symphonia::core::{
 use crate::{
     MIN_FADE_SECS,
     pending::{PendingPlays, ReadyPlay},
-    registry::ClipRegistry,
+    registry::{ClipRegistry, ClipState},
 };
 
 /// Plays and stops that may queue up for the output callback between two of
@@ -652,10 +652,6 @@ impl AudioManager for NativeAudioManager {
         }
     }
 
-    fn clip_state(&self, id: SoundId) -> ClipState {
-        self.clips.state(id)
-    }
-
     fn play_sound(&mut self, clip: SoundId, volume: f32, pitch: f32) {
         let volume: f32 = clamp_volume(volume);
         let pitch: f32 = clamp_pitch(pitch);
@@ -691,14 +687,6 @@ impl AudioManager for NativeAudioManager {
 
     fn set_channel_volume(&mut self, channel: AudioChannel, volume: f32) {
         self.volumes.store_channel(channel, clamp_volume(volume));
-    }
-
-    fn master_volume(&self) -> f32 {
-        self.volumes.load().master_volume
-    }
-
-    fn channel_volume(&self, channel: AudioChannel) -> f32 {
-        self.volumes.load().channel(channel)
     }
 
     fn suspend(&mut self) {

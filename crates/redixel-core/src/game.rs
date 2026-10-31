@@ -186,8 +186,8 @@ pub trait GameContext<A: InputAction> {
     /// dedicated thread (native) or through the browser's asynchronous
     /// `decodeAudioData` (web), so a large file never stalls a frame. Call
     /// this from `on_start`: a play issued while the clip is still decoding
-    /// starts once it finishes, but one still waiting a couple of seconds
-    /// later is dropped.
+    /// starts once it finishes, except a sound effect still waiting a couple
+    /// of seconds later, which is dropped. Music waits however long it takes.
     ///
     /// A clip is decoded in full and held as 32-bit float samples — roughly
     /// 20 MB per minute of stereo audio — which suits sound effects and short

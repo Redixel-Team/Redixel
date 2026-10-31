@@ -46,7 +46,7 @@ pub fn clamp_fade(seconds: f32) -> f32 {
 /// An opaque handle to an audio clip the engine has been asked to load.
 ///
 /// Issued the moment a game calls `load_sound`/`load_sound_file`, before any
-/// decoding happens; see [`AudioManager::clip_state`]. The same handle works
+/// decoding happens. The same handle works
 /// with both [`GameContext::play_sound`](crate::game::GameContext::play_sound)
 /// (a one-shot effect) and
 /// [`GameContext::play_music`](crate::game::GameContext::play_music) (a looped
@@ -72,18 +72,6 @@ impl SoundId {
 pub enum AudioChannel {
     Sfx,
     Music,
-}
-
-/// Loading state of a [`SoundId`], polled through [`AudioManager::clip_state`].
-///
-/// A clip is `Pending` from the moment its bytes reach the backend until
-/// decoding resolves. A `Failed` clip plays silently forever after — the same
-/// "never hard-fail on a bad asset" contract textures already have.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum ClipState {
-    Pending,
-    Ready,
-    Failed,
 }
 
 /// Master and per-channel volume, each `0.0` (silent) to `1.0` (unattenuated).
@@ -189,25 +177,23 @@ impl Default for MusicOptions {
 pub trait AudioManager {
     /// Registers `bytes` for decoding under `id` without blocking the caller.
     ///
-    /// [`clip_state`](Self::clip_state) reports when decoding finishes; a play
-    /// made against a still-decoding clip starts once it resolves.
+    /// A play made against a still-decoding clip starts once it resolves. A
+    /// clip that fails to decode plays silently forever after — the same
+    /// "never hard-fail on a bad asset" contract textures already have.
     fn load_clip(&mut self, id: SoundId, bytes: Vec<u8>);
-
-    /// The loading state of `id`. An id never passed to
-    /// [`load_clip`](Self::load_clip) is [`Failed`](ClipState::Failed).
-    fn clip_state(&self, id: SoundId) -> ClipState;
 
     /// Plays `clip` once through the [`Sfx`](AudioChannel::Sfx) channel.
     ///
-    /// A play made while `clip` is still [`Pending`](ClipState::Pending)
-    /// starts once decoding finishes, unless the clip fails to decode or is
-    /// still pending a couple of seconds later.
+    /// A play made while `clip` is still decoding starts once decoding
+    /// finishes, unless the clip fails to decode or is still decoding a
+    /// couple of seconds later.
     fn play_sound(&mut self, clip: SoundId, volume: f32, pitch: f32);
 
     /// Plays `clip` on the [`Music`](AudioChannel::Music) channel, replacing
     /// whatever is playing there, and cancels any earlier `play_music` still
     /// waiting on its clip to decode so an older request can never start
-    /// after a newer one.
+    /// after a newer one. A play made while `clip` is still decoding waits
+    /// for it however long that takes.
     fn play_music(&mut self, clip: SoundId, options: MusicOptions);
 
     /// Fades the current music track to silence over `fade_out` seconds and
@@ -220,12 +206,6 @@ pub trait AudioManager {
     /// Sets one channel's volume, independent of the other channel and of
     /// the master volume.
     fn set_channel_volume(&mut self, channel: AudioChannel, volume: f32);
-
-    /// The current master volume.
-    fn master_volume(&self) -> f32;
-
-    /// The current volume of `channel`.
-    fn channel_volume(&self, channel: AudioChannel) -> f32;
 
     /// Silences output while the app is in the background. The runtime calls
     /// this when the OS suspends the app.
@@ -246,36 +226,14 @@ pub trait AudioManager {
 ///
 /// Installed as the default so `ctx.play_sound`/`ctx.play_music` are always
 /// callable — a headless server or a build without the `audio` feature hits
-/// no special-casing. Playback is a true no-op, but volume is still tracked so
-/// a settings screen reads back what it set; every clip is
-/// [`ClipState::Failed`] since nothing is ever decoded.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct NoOpAudio {
-    volumes: AudioConfig,
-}
-
-impl NoOpAudio {
-    pub fn new(volumes: AudioConfig) -> Self {
-        Self {
-            volumes: volumes.clamped(),
-        }
-    }
-}
-
-impl Default for NoOpAudio {
-    fn default() -> Self {
-        Self::new(AudioConfig::default())
-    }
-}
+/// no special-casing. The game still reads back the volumes it set, since
+/// `GameContext` tracks them itself.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct NoOpAudio;
 
 impl AudioManager for NoOpAudio {
     #[inline]
     fn load_clip(&mut self, _id: SoundId, _bytes: Vec<u8>) {}
-
-    #[inline]
-    fn clip_state(&self, _id: SoundId) -> ClipState {
-        ClipState::Failed
-    }
 
     #[inline]
     fn play_sound(&mut self, _clip: SoundId, _volume: f32, _pitch: f32) {}
@@ -287,24 +245,10 @@ impl AudioManager for NoOpAudio {
     fn stop_music(&mut self, _fade_out: f32) {}
 
     #[inline]
-    fn set_master_volume(&mut self, volume: f32) {
-        self.volumes.master_volume = clamp_volume(volume);
-    }
+    fn set_master_volume(&mut self, _volume: f32) {}
 
     #[inline]
-    fn set_channel_volume(&mut self, channel: AudioChannel, volume: f32) {
-        self.volumes.set_channel(channel, clamp_volume(volume));
-    }
-
-    #[inline]
-    fn master_volume(&self) -> f32 {
-        self.volumes.master_volume
-    }
-
-    #[inline]
-    fn channel_volume(&self, channel: AudioChannel) -> f32 {
-        self.volumes.channel(channel)
-    }
+    fn set_channel_volume(&mut self, _channel: AudioChannel, _volume: f32) {}
 
     #[inline]
     fn update(&mut self, _dt: f32) {}
@@ -313,44 +257,6 @@ impl AudioManager for NoOpAudio {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn noop_audio_never_resolves_a_clip() {
-        let mut audio: NoOpAudio = NoOpAudio::default();
-        audio.load_clip(SoundId::new(0), vec![1, 2, 3]);
-        audio.play_sound(SoundId::new(0), 1.0, 1.0);
-        audio.play_music(SoundId::new(0), MusicOptions::default());
-        audio.stop_music(0.0);
-        audio.update(0.016);
-
-        assert_eq!(audio.clip_state(SoundId::new(0)), ClipState::Failed);
-    }
-
-    #[test]
-    fn noop_audio_starts_from_the_clamped_config() {
-        let audio: NoOpAudio = NoOpAudio::new(AudioConfig {
-            master_volume: 0.5,
-            sfx_volume:    3.0,
-            music_volume:  f32::NAN,
-        });
-
-        assert_eq!(audio.master_volume(), 0.5);
-        assert_eq!(audio.channel_volume(AudioChannel::Sfx), 1.0);
-        assert_eq!(audio.channel_volume(AudioChannel::Music), 0.0);
-    }
-
-    #[test]
-    fn noop_audio_volume_setters_round_trip_through_the_clamp() {
-        let mut audio: NoOpAudio = NoOpAudio::default();
-
-        audio.set_master_volume(0.4);
-        audio.set_channel_volume(AudioChannel::Sfx, 0.6);
-        audio.set_channel_volume(AudioChannel::Music, -2.0);
-
-        assert_eq!(audio.master_volume(), 0.4);
-        assert_eq!(audio.channel_volume(AudioChannel::Sfx), 0.6);
-        assert_eq!(audio.channel_volume(AudioChannel::Music), 0.0);
-    }
 
     #[test]
     fn clamp_volume_keeps_the_unit_range_and_silences_non_finite_values() {

@@ -132,7 +132,7 @@ impl RuntimeConfig {
         }
         #[cfg(not(feature = "audio"))]
         {
-            Box::new(NoOpAudio::new(self.audio))
+            Box::new(NoOpAudio)
         }
     }
 }

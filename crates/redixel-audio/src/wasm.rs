@@ -19,7 +19,7 @@ use std::{
 
 use js_sys::{Promise, Uint8Array};
 use redixel_core::{
-    AudioChannel, AudioConfig, AudioManager, ClipState, MusicOptions, SoundId,
+    AudioChannel, AudioConfig, AudioManager, MusicOptions, SoundId,
     audio::{clamp_fade, clamp_pitch, clamp_volume},
 };
 use wasm_bindgen::{JsCast, JsValue, closure::Closure};
@@ -32,7 +32,7 @@ use web_sys::{
 use crate::{
     MIN_FADE_SECS,
     pending::{PendingPlays, ReadyPlay},
-    registry::ClipRegistry,
+    registry::{ClipRegistry, ClipState},
 };
 
 /// The DOM events browsers accept as the user gesture that lets audio start.
@@ -94,7 +94,6 @@ pub struct WasmAudioManager {
     master_gain:     GainNode,
     sfx_gain:        GainNode,
     music_gain:      GainNode,
-    volumes:         AudioConfig,
     clips:           ClipRegistry<AudioBuffer>,
     decoded:         Mailbox,
     pending:         PendingPlays,
@@ -123,7 +122,6 @@ impl WasmAudioManager {
             master_gain,
             sfx_gain,
             music_gain,
-            volumes,
             clips: ClipRegistry::default(),
             decoded: Rc::new(RefCell::new(VecDeque::new())),
             pending: PendingPlays::default(),
@@ -180,10 +178,6 @@ impl AudioManager for WasmAudioManager {
         });
     }
 
-    fn clip_state(&self, id: SoundId) -> ClipState {
-        self.clips.state(id)
-    }
-
     fn play_sound(&mut self, clip: SoundId, volume: f32, pitch: f32) {
         let volume: f32 = clamp_volume(volume);
         let pitch: f32 = clamp_pitch(pitch);
@@ -215,27 +209,15 @@ impl AudioManager for WasmAudioManager {
     }
 
     fn set_master_volume(&mut self, volume: f32) {
-        self.volumes.master_volume = clamp_volume(volume);
-        self.master_gain.gain().set_value(self.volumes.master_volume);
+        self.master_gain.gain().set_value(clamp_volume(volume));
     }
 
     fn set_channel_volume(&mut self, channel: AudioChannel, volume: f32) {
-        let volume: f32 = clamp_volume(volume);
-        self.volumes.set_channel(channel, volume);
-
         let bus: &GainNode = match channel {
             AudioChannel::Sfx => &self.sfx_gain,
             AudioChannel::Music => &self.music_gain,
         };
-        bus.gain().set_value(volume);
-    }
-
-    fn master_volume(&self) -> f32 {
-        self.volumes.master_volume
-    }
-
-    fn channel_volume(&self, channel: AudioChannel) -> f32 {
-        self.volumes.channel(channel)
+        bus.gain().set_value(clamp_volume(volume));
     }
 
     fn suspend(&mut self) {

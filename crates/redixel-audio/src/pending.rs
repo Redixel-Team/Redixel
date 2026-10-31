@@ -2,10 +2,12 @@
 //! resolves. Shared by the native and web backends so the policy cannot drift
 //! between them.
 
-use redixel_core::{ClipState, MusicOptions, SoundId};
+use redixel_core::{MusicOptions, SoundId};
 
-/// How long a play may wait on a still-decoding clip before it is dropped, so
-/// a sound never fires long after the moment that triggered it.
+use crate::registry::ClipState;
+
+/// How long a sound play may wait on a still-decoding clip before it is
+/// dropped, so a sound never fires long after the moment that triggered it.
 const MAX_WAIT_SECS: f32 = 2.0;
 
 /// How many sound plays may wait at once. More would release a burst of stale
@@ -36,7 +38,8 @@ struct Waiting {
 ///
 /// At most one music play waits at a time, and a newer `play_music` or a
 /// `stop_music` replaces or cancels it, so an older music request can never
-/// start after a newer one.
+/// start after a newer one. That is also why it waits with no deadline: a
+/// long track may take longer than [`MAX_WAIT_SECS`] to decode.
 #[derive(Default)]
 pub(crate) struct PendingPlays {
     sounds: Vec<Waiting>,
@@ -76,10 +79,10 @@ impl PendingPlays {
         let mut ready: Vec<ReadyPlay> = Vec::new();
 
         self.sounds
-            .retain_mut(|waiting: &mut Waiting| keep_waiting(waiting, dt, &state, &mut ready));
+            .retain_mut(|waiting: &mut Waiting| keep_waiting(waiting, dt, MAX_WAIT_SECS, &state, &mut ready));
 
         if let Some(waiting) = &mut self.music
-            && !keep_waiting(waiting, dt, &state, &mut ready)
+            && !keep_waiting(waiting, dt, f32::INFINITY, &state, &mut ready)
         {
             self.music = None;
         }
@@ -89,10 +92,12 @@ impl PendingPlays {
 }
 
 /// Settles one waiting play, returning whether it should keep waiting. A play
-/// whose clip is ready is pushed onto `ready`.
+/// whose clip is ready is pushed onto `ready`, and one still pending after
+/// `max_wait` seconds is dropped.
 fn keep_waiting(
     waiting: &mut Waiting,
     dt: f32,
+    max_wait: f32,
     state: &impl Fn(SoundId) -> ClipState,
     ready: &mut Vec<ReadyPlay>,
 ) -> bool {
@@ -106,11 +111,11 @@ fn keep_waiting(
         ClipState::Failed => false,
         ClipState::Pending => {
             waiting.age += dt;
-            if waiting.age < MAX_WAIT_SECS {
+            if waiting.age < max_wait {
                 true
             } else {
                 log::warn!(
-                    "A play of sound {} was dropped after waiting {MAX_WAIT_SECS}s for it to decode.",
+                    "A play of sound {} was dropped after waiting {max_wait}s for it to decode.",
                     clip.index()
                 );
                 false
@@ -167,6 +172,26 @@ mod tests {
                 .is_empty()
         );
         assert!(pending.take_ready(0.1, |_: SoundId| ClipState::Ready).is_empty());
+    }
+
+    #[test]
+    fn a_music_play_waits_past_the_sound_deadline() {
+        let mut pending: PendingPlays = PendingPlays::default();
+        pending.wait_music(CLIP, MusicOptions::default());
+
+        assert!(
+            pending
+                .take_ready(MAX_WAIT_SECS * 10.0, |_: SoundId| ClipState::Pending)
+                .is_empty()
+        );
+        assert_eq!(
+            pending.take_ready(0.1, |_: SoundId| ClipState::Ready),
+            vec![ReadyPlay::Music {
+                clip:    CLIP,
+                options: MusicOptions::default(),
+            }],
+            "a long track that decodes slowly must still start"
+        );
     }
 
     #[test]

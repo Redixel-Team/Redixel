@@ -127,7 +127,6 @@ pub struct Shooter {
     time_since_start: f32,
     shoot_sfx:        Option<SoundId>,
     hit_sfx:          Option<SoundId>,
-
     powerup_respawn:  f32,
     powerup_cycle:    usize,
     afterimage_clock: f32,

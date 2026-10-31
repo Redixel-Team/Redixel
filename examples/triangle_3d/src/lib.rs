@@ -1,5 +1,10 @@
 use redixel::prelude::*;
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+enum Action {
+    Exit,
+}
+
 const CAMERA_DISTANCE: f32 = 3.0;
 
 struct Triangle3d {
@@ -26,13 +31,18 @@ impl Triangle3d {
 }
 
 impl Game for Triangle3d {
-    type Action = ();
+    type Action = Action;
 
-    fn on_start(&mut self, _ctx: &mut dyn GameContext<Self::Action>) {
+    fn on_start(&mut self, ctx: &mut dyn GameContext<Self::Action>) {
+        ctx.input_mut().bind(Action::Exit, KeyCode::Escape.into());
         log::info!("triangle_3d::on_start");
     }
 
     fn on_update(&mut self, ctx: &mut dyn GameContext<Self::Action>) {
+        if ctx.input().just_pressed(Action::Exit) {
+            ctx.exit();
+        }
+
         self.rotation += (ctx.delta_time() as f32) * 1.5;
         self.rotation %= std::f32::consts::TAU;
     }

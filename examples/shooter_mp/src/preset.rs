@@ -26,8 +26,8 @@ pub fn config() -> RuntimeConfig {
     redixel::build_config().with_net(pin_certificate(NetConfig::client(connect)))
 }
 
-/// Only the browser has to be told which certificate to trust; the native
-/// clients reach the server over a socket the OS already validates.
+/// Only the browser has to be told which certificate to trust: native clients
+/// with no `server_name` connect with certificate validation disabled.
 #[cfg(target_arch = "wasm32")]
 fn pin_certificate(net_config: NetConfig) -> NetConfig {
     use crate::proto::parse_cert_hash_hex;

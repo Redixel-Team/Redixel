@@ -15,8 +15,8 @@ publish = false
 
 [package.metadata.game]
 title = "Pong"
-description = "The classic reimagined. Showcasing deterministic physics and low-latency input handling."
-tags = ["Deterministic", "2D_Collision"]
+description = "The classic reimagined. Showcasing paddle physics, an AI opponent and low-latency keyboard and mouse-wheel input."
+tags = ["Input", "2D_Collision"]
 
 [lib]
 crate-type = ["cdylib", "staticlib", "rlib"]

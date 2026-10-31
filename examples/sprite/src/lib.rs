@@ -55,6 +55,11 @@ const FACE_UVS: [Vec2; 4] = [
     Vec2::new(1.0, 1.0),
 ];
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+enum Action {
+    Exit,
+}
+
 #[derive(Default)]
 struct Sprite {
     rotation: f32,
@@ -81,7 +86,7 @@ impl Sprite {
     /// Draws the textured cube. Nothing is culled, so both triangles of a face
     /// are submitted in the order the face table lists its corners; the depth
     /// buffer decides what is actually visible.
-    fn draw_cube(&self, ctx: &mut dyn GameContext<()>, texture: TextureId) {
+    fn draw_cube(&self, ctx: &mut dyn GameContext<Action>, texture: TextureId) {
         let corners: [Vec3; 8] = std::array::from_fn(|i: usize| self.place(CUBE_CORNERS[i]));
 
         for face in CUBE_FACES.iter() {
@@ -110,7 +115,7 @@ impl Sprite {
     /// Each shows the panel through its transparent border rather than a red
     /// box, which is the alpha channel being honoured. 2D neither tests nor
     /// writes depth, so painter order alone puts these over the cube.
-    fn draw_hearts(&self, ctx: &mut dyn GameContext<()>, texture: TextureId) {
+    fn draw_hearts(&self, ctx: &mut dyn GameContext<Action>, texture: TextureId) {
         let panel_width: f32 =
             HEART_COUNT as f32 * HEART_SIZE + (HEART_COUNT - 1) as f32 * HEART_GAP + 2.0 * PANEL_PADDING;
 
@@ -135,9 +140,10 @@ impl Sprite {
 }
 
 impl Game for Sprite {
-    type Action = ();
+    type Action = Action;
 
     fn on_start(&mut self, ctx: &mut dyn GameContext<Self::Action>) {
+        ctx.input_mut().bind(Action::Exit, KeyCode::Escape.into());
         log::info!("sprite::on_start");
 
         self.crate_tex = Some(ctx.load_texture(CRATE_PNG));
@@ -145,6 +151,10 @@ impl Game for Sprite {
     }
 
     fn on_update(&mut self, ctx: &mut dyn GameContext<Self::Action>) {
+        if ctx.input().just_pressed(Action::Exit) {
+            ctx.exit();
+        }
+
         self.rotation += (ctx.delta_time() as f32) * 0.8;
         self.rotation %= std::f32::consts::TAU;
     }

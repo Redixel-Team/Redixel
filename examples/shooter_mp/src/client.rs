@@ -181,9 +181,10 @@ impl Prediction {
 }
 
 /// A thin client: it samples input, predicts only the local player's
-/// movement (see [`Prediction`]), and renders remote agents/bullets straight
-/// from the latest server snapshot (see [`world`](Self::world)), holding
-/// only local cosmetic state (particles, shake, timers) beyond that.
+/// movement (see [`Prediction`]), and renders remote agents interpolated
+/// between buffered server snapshots (see
+/// [`interpolated_world`](Self::interpolated_world)), holding only local
+/// cosmetic state (particles, shake, timers) beyond that.
 pub struct Client {
     latest: Option<Snapshot>,
     snapshots: VecDeque<Snapshot>,

@@ -260,7 +260,7 @@ pub fn send_encoded<T: Serialize>(
 }
 
 /// Decodes the SHA-256 certificate digest the native server logs on startup —
-/// exactly 64 lowercase hex characters, no separators — into the 32 raw bytes a
+/// exactly 64 hex characters (the server logs lowercase), no separators — into the 32 raw bytes a
 /// browser pins via `WebTransportOptions.serverCertificateHashes`.
 ///
 /// `None` for anything that is not 64 hex characters (a truncated paste, a

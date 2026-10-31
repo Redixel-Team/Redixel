@@ -25,7 +25,7 @@ The browser client needs the WASM toolchain from [Running on Web](./platforms/we
    # WebTransport server certificate hash (sha-256): <64 hex characters>
    ```
 
-2. **Paste it** into `SERVER_CERT_HASH_HEX` in `examples/shooter_mp/src/lib.rs` (the `wasm` module), replacing the `"SERVER_CERT_HASH_HEX"` placeholder. If the server binds to anything other than `127.0.0.1:5000`, also update `SERVER_ADDR` in the same file — the browser client has no argv, so the address is fixed at build time.
+2. **Paste it** into `SERVER_CERT_HASH_HEX` in `examples/shooter_mp/src/preset.rs`, replacing the `"SERVER_CERT_HASH_HEX"` placeholder. If the server binds to anything other than `127.0.0.1:5000`, also update `SERVER_ADDR` in the same file — the browser client has no argv, so the address is fixed at build time.
 
 3. **Run the client:**
 

@@ -44,13 +44,13 @@ Implements the `NetworkManager` trait defined in `redixel-core`.
 The structural foundation of the engine framework.
 
 - **Responsibility:** Defines the main lifecycles (`Game` trait), the shared execution context (`GameContext`), the input action bindings, the `NetworkManager` trait, texture handles (`TextureId`), and the centralized error system (`RedixelError`).
-- **Dependencies:** Relies on `redixel-math` for type definitions, but remains completely agnostic of runtime, windowing, or graphics implementations.
+- **Dependencies:** Relies on `redixel-math` for type definitions, and on `winit` only for its input types (`KeyCode`, `MouseButton`) and window errors. It knows nothing of the runtime or the renderer: the `wgpu` error variants sit behind an optional `wgpu` feature.
 
 ## 7\. Mathematics Layer (`redixel-math`)
 
 The absolute bedrock utility crate of the entire workspace.
 
-- **Responsibility:** Implements pure, zero-dependency linear algebra operations, including vectors (`Vec2`, `Vec3`), transformation matrices (`Mat4`) with orthographic and perspective projections, and color representations (`Color`).
+- **Responsibility:** Implements pure linear algebra operations, with no dependencies unless the optional `wgpu` feature (the `Color` → `wgpu::Color` conversion) is enabled, including vectors (`Vec2`, `Vec3`), transformation matrices (`Mat4`) with orthographic and perspective projections, and color representations (`Color`).
 - **Behavior:** Completely isolated from engine systems and game logic, ensuring optimal compilation times and maximum portability.
 
 ## Directory Structure
@@ -60,7 +60,7 @@ redixel/
 ├── Cargo.toml                  # Workspace Root Configuration
 ├── config/                     # Default config.json and its reference (CONFIG.md)
 ├── crates/
-│   ├── redixel-core/           # Base types, errors, no heavy dependencies
+│   ├── redixel-core/           # Game/GameContext traits, input, errors, net trait
 │   ├── redixel-math/           # Linear algebra (Vec2, Vec3, Mat4, Color)
 │   ├── redixel-platform/       # Winit: window, input, web-sys DOM injection
 │   ├── redixel-renderer/       # Wgpu: GPU device, 2D/3D pipelines, batches, textures

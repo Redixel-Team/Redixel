@@ -1,3 +1,5 @@
+//! Core traits and types shared by every Redixel crate: `Game`, `GameContext`, input actions, the `NetworkManager` trait and `RedixelError`.
+
 pub mod error;
 pub mod game;
 pub mod input;

@@ -1,3 +1,5 @@
+//! Engine runtime for Redixel: the windowed and headless application loops, timing, settings and draw-command dispatch.
+
 mod simulation;
 
 pub mod context;

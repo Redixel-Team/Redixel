@@ -11,4 +11,4 @@ publish = false
 [dependencies]
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
-toml = "1.1.2"
+toml = { workspace = true }

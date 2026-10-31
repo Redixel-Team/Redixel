@@ -344,7 +344,7 @@ mod tests {
         let texels: Vec<u8> = checkerboard_rgba(CHECKERBOARD_SIZE, CHECKERBOARD_CELL);
 
         assert!(
-            texels.chunks_exact(4).all(|t: &[u8]| t[3] == 0xFF),
+            texels.as_chunks::<4>().0.iter().all(|t: &[u8; 4]| t[3] == 0xFF),
             "a translucent marker would blend away the thing it is meant to flag"
         );
     }

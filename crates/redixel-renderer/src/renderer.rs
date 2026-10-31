@@ -122,8 +122,9 @@ impl Renderer {
         (self.device.config.width, self.device.config.height)
     }
 
-    /// Returns a mutable reference to the draw queue.
-    /// Game code queues draw calls here during `on_render`.
+    /// Returns a mutable reference to the draw queue, for callers driving the
+    /// renderer directly. Games never see it: their draw calls reach it as
+    /// `DrawCommand`s dispatched by the runtime.
     pub fn draw_queue_mut(&mut self) -> &mut DrawQueue {
         &mut self.queue
     }

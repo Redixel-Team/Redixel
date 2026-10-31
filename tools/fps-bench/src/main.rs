@@ -1,3 +1,5 @@
+//! Internal CI benchmark: renders a fixed synthetic scene and reports median FPS, frame times and allocations per tier.
+
 #[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
 mod bench {
     use std::{

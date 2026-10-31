@@ -5,7 +5,7 @@ use redixel_math::{Color, Vec2, Vec3};
 
 use crate::{pipeline::Vertex, texture::TextureRegistry};
 
-/// Relative to the rectangle's own first vertex. Clockwise in world space,
+/// Relative to the rectangle's own first vertex. Clockwise in pixel space,
 /// which the camera's y-flipping projection turns into the `FrontFace::Ccw`
 /// the shape pipeline declares.
 const RECT_INDICES: [u32; 6] = [0, 2, 1, 1, 2, 3];
@@ -140,18 +140,18 @@ impl Geometry {
     }
 }
 
-fn create_vertex_buffer(device: &Device, vertices: usize) -> Buffer {
+fn create_vertex_buffer(device: &Device, label: &str, vertices: usize) -> Buffer {
     device.create_buffer(&BufferDescriptor {
-        label: Some("REDIXEL_SPRITE_BATCH_VB"),
+        label: Some(&format!("{label}_VB")),
         size: (vertices * std::mem::size_of::<Vertex>()) as u64,
         usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
         mapped_at_creation: false,
     })
 }
 
-fn create_index_buffer(device: &Device, indices: usize) -> Buffer {
+fn create_index_buffer(device: &Device, label: &str, indices: usize) -> Buffer {
     device.create_buffer(&BufferDescriptor {
-        label: Some("REDIXEL_SPRITE_BATCH_IB"),
+        label: Some(&format!("{label}_IB")),
         size: (indices * std::mem::size_of::<u32>()) as u64,
         usage: BufferUsages::INDEX | BufferUsages::COPY_DST,
         mapped_at_creation: false,
@@ -164,6 +164,7 @@ fn create_index_buffer(device: &Device, indices: usize) -> Buffer {
 /// nothing up front: buffers start empty and grow to fit whatever is drawn, so
 /// nothing is ever silently dropped.
 struct GeometryBuffers {
+    label: &'static str,
     vertex_buffer: Buffer,
     index_buffer: Buffer,
     vertex_capacity: usize,
@@ -174,10 +175,11 @@ struct GeometryBuffers {
 impl GeometryBuffers {
     /// The first `flush()` sizes the buffers to the frame actually drawn, so a
     /// game that draws little pays for little.
-    fn new(device: &Device) -> Self {
+    fn new(device: &Device, label: &'static str) -> Self {
         Self {
-            vertex_buffer: create_vertex_buffer(device, 0),
-            index_buffer: create_index_buffer(device, 0),
+            label,
+            vertex_buffer: create_vertex_buffer(device, label, 0),
+            index_buffer: create_index_buffer(device, label, 0),
             vertex_capacity: 0,
             index_capacity: 0,
             geometry: Geometry::default(),
@@ -229,13 +231,13 @@ impl GeometryBuffers {
         let vertices: usize = self.geometry.vertices.len();
         if vertices > self.vertex_capacity {
             self.vertex_capacity = vertices.next_power_of_two();
-            self.vertex_buffer = create_vertex_buffer(device, self.vertex_capacity);
+            self.vertex_buffer = create_vertex_buffer(device, self.label, self.vertex_capacity);
         }
 
         let indices: usize = self.geometry.indices.len();
         if indices > self.index_capacity {
             self.index_capacity = indices.next_power_of_two();
-            self.index_buffer = create_index_buffer(device, self.index_capacity);
+            self.index_buffer = create_index_buffer(device, self.label, self.index_capacity);
         }
     }
 }
@@ -256,14 +258,14 @@ pub struct SpriteBatch {
 impl SpriteBatch {
     pub fn new(device: &Device) -> Self {
         Self {
-            buffers: GeometryBuffers::new(device),
+            buffers: GeometryBuffers::new(device, "REDIXEL_SPRITE_BATCH"),
         }
     }
 
     /// Queues a filled rectangle for drawing.
     ///
-    /// - `position` — top-left corner in world coordinates (y-down)
-    /// - `size`     — width × height in world units
+    /// - `position` — top-left corner in surface pixels (y-down)
+    /// - `size`     — width × height in pixels
     /// - `color`    — RGBA fill colour
     pub fn draw_rect(&mut self, position: Vec2, size: Vec2, color: Color) {
         self.buffers
@@ -272,8 +274,8 @@ impl SpriteBatch {
 
     /// Queues a textured rectangle for drawing.
     ///
-    /// - `position` — top-left corner in world coordinates (y-down)
-    /// - `size`     — width × height in world units
+    /// - `position` — top-left corner in surface pixels (y-down)
+    /// - `size`     — width × height in pixels
     /// - `texture`  — the image to stretch across the quad
     /// - `tint`     — multiplied into every sampled texel; `Color::WHITE` is the no-op
     pub fn draw_sprite(&mut self, position: Vec2, size: Vec2, texture: TextureId, tint: Color) {
@@ -283,7 +285,7 @@ impl SpriteBatch {
 
     /// Queues a filled triangle for drawing.
     ///
-    /// - `p1`, `p2`, `p3` — The three corners of the triangle in world coordinates
+    /// - `p1`, `p2`, `p3` — the three corners, in surface pixels (y-down)
     /// - `color`          — RGBA fill colour
     pub fn draw_triangle(&mut self, p1: Vec2, p2: Vec2, p3: Vec2, color: Color) {
         self.buffers
@@ -327,7 +329,7 @@ pub struct MeshBatch {
 impl MeshBatch {
     pub fn new(device: &Device) -> Self {
         Self {
-            buffers: GeometryBuffers::new(device),
+            buffers: GeometryBuffers::new(device, "REDIXEL_MESH_BATCH"),
         }
     }
 

@@ -92,8 +92,9 @@ pub trait NetworkManager {
     /// `true` if this instance is the authoritative server.
     fn is_server(&self) -> bool;
 
-    /// The local client id once connected, or `None` on a pure server or while
-    /// a client connection is still pending.
+    /// The local client id, or `None` on a pure server. Networked clients
+    /// report `None` until the handshake assigns an id; the in-process
+    /// loopback assigns its id up front.
     fn local_client(&self) -> Option<ClientId>;
 
     /// `true` once the transport is usable (server bound, or client connected).

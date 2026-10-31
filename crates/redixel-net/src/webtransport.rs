@@ -492,7 +492,7 @@ async fn handshake_server(
     });
 }
 
-/// Authoritative server over WebTransport (desktop + Android), QUIC/HTTP-3
+/// Authoritative server over WebTransport (any native target), QUIC/HTTP-3
 /// via [`wtransport`]. Owns a background tokio runtime bridging its async API
 /// to the engine's synchronous [`redixel_core::NetworkManager`].
 pub struct WebTransportServer {
@@ -950,7 +950,7 @@ pub fn build(config: &NetConfig, tickrate: f64) -> Box<dyn NetworkManager> {
         NetMode::Server { bind } => {
             match WebTransportServer::new(*bind, &config.cert, tickrate, config.protocol_id, config.max_clients) {
                 Ok(server) => {
-                    log::info!("WebTransport server listening on {bind} (max {} clients).", config.max_clients);
+                    log::info!("WebTransport server listening on {bind} (max {} clients).", config.max_clients.max(1));
                     if let Some(hash) = server.cert_hash() {
                         log::info!("WebTransport server certificate hash (sha-256): {}", to_hex(&hash));
                     }

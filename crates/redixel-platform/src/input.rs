@@ -329,7 +329,7 @@ mod tests {
     }
 
     #[test]
-    fn test_key_lifecycle_just_pressed_to_held() {
+    fn key_lifecycle_just_pressed_to_held() {
         let mut mgr: InputManager<Action> = InputManager::new();
         mgr.bind(Action::Jump, KeyCode::Space.into());
 
@@ -346,7 +346,7 @@ mod tests {
     }
 
     #[test]
-    fn test_key_lifecycle_just_released() {
+    fn key_lifecycle_just_released() {
         let mut mgr: InputManager<Action> = InputManager::new();
         mgr.bind(Action::Jump, KeyCode::Space.into());
 
@@ -364,7 +364,7 @@ mod tests {
     }
 
     #[test]
-    fn test_ignore_keyboard_repeat_events() {
+    fn ignore_keyboard_repeat_events() {
         let mut mgr: InputManager<Action> = InputManager::new();
         mgr.bind(Action::Jump, KeyCode::Space.into());
 
@@ -379,7 +379,7 @@ mod tests {
     }
 
     #[test]
-    fn test_multiple_keys_bound_to_same_action() {
+    fn multiple_keys_bound_to_same_action() {
         let mut mgr: InputManager<Action> = InputManager::new();
         mgr.bind(Action::Jump, KeyCode::Space.into());
         mgr.bind(Action::Jump, KeyCode::ArrowUp.into());
@@ -391,7 +391,7 @@ mod tests {
     }
 
     #[test]
-    fn test_mouse_button_lifecycle() {
+    fn mouse_button_lifecycle() {
         let mut mgr: InputManager<Action> = InputManager::new();
         mgr.bind(Action::Shoot, MouseButton::Left.into());
 
@@ -412,7 +412,7 @@ mod tests {
     }
 
     #[test]
-    fn test_mouse_scroll_double_buffering() {
+    fn mouse_scroll_double_buffering() {
         let mut mgr: InputManager<Action> = InputManager::new();
 
         mgr.process_event(&scroll_event(0.0, 1.0));
@@ -429,7 +429,7 @@ mod tests {
     }
 
     #[test]
-    fn test_mouse_position_tracking() {
+    fn mouse_position_tracking() {
         let mut mgr: InputManager<Action> = InputManager::new();
 
         mgr.process_event(&pointer_event(320.0, 240.0));
@@ -440,7 +440,7 @@ mod tests {
     }
 
     #[test]
-    fn test_phantom_click_deferral_prevents_lost_inputs() {
+    fn phantom_click_deferral_prevents_lost_inputs() {
         let mut mgr: InputManager<Action> = InputManager::new();
         mgr.bind(Action::Fire, MouseButton::Right.into());
 

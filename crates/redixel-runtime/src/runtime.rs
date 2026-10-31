@@ -229,7 +229,8 @@ impl<G: Game> Runtime<G> {
     }
 
     /// Moves the stored fatal error out of the runtime.
-    /// Called by `redixel::run()` after `run_app` returns.
+    /// Called by `redixel::run_desktop_with` / `run_android_with` after the
+    /// event loop returns.
     pub fn take_error(&mut self) -> Option<RedixelError> {
         self.fatal_error.take()
     }

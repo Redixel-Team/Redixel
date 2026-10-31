@@ -231,7 +231,7 @@ async fn datagram_reader_wasm(reader: ReadableStreamDefaultReader, mailbox: Mail
 /// the browser with a synchronous `write_with_chunk` call, so the split exists
 /// only to advance `send_seq` in tick order before any write is issued.
 ///
-/// The chunking itself comes from [`seq::plan`]/[`seq::fragments`], shared with
+/// The chunking itself comes from [`seq::Plan`] and its `fragments`, shared with
 /// native, so the two backends cannot drift apart on the wire format.
 ///
 /// Unreliable by contract: a message that cannot be sent is **dropped**,
@@ -634,7 +634,7 @@ impl NetworkManager for WasmWebTransportClient {
 /// to a [`NoOpNetwork`] (with a logged error) on failure. `tickrate` is
 /// unused here (unlike native, a browser can never be `NetMode::Server`, so
 /// there is no welcome frame for this side to embed a tickrate into) but kept
-/// for signature parity with [`crate::webtransport::build`].
+/// for signature parity with the native backend's `build`.
 pub fn build(config: &NetConfig, _tickrate: f64) -> Box<dyn NetworkManager> {
     match &config.mode {
         NetMode::Server { .. } => {

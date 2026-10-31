@@ -1,3 +1,5 @@
+//! WGPU-backed renderer for the Redixel engine: batched 2D shapes and sprites, depth-tested 3D triangles, and textures.
+
 pub mod batch;
 pub mod device;
 pub mod pipeline;

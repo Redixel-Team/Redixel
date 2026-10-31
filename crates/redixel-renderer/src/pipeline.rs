@@ -49,7 +49,8 @@ impl Vertex {
 
 /// Everything the vertex shader reads from `group(0) binding(0)`: the two
 /// column-major 4×4 camera matrices, plus the per-frame globals `resolution`
-/// and `time` a future effect may need without a layout change.
+/// and `time`. The group is visible to the vertex stage only, so a fragment
+/// effect reading them needs its visibility widened in [`ShapePipeline::new`].
 ///
 /// The field order is the memory layout WGSL expects, so it is not free to
 /// change: matrices align to 16 bytes and sit first, `resolution` is a

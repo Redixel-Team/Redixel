@@ -18,7 +18,7 @@ pub(crate) enum Inbound<P> {
 /// The runtime calls [`reset`](Self::reset) at the top of each `update`, the
 /// backend [`push`](Self::push)es freshly received items, and the game drains
 /// them with [`poll`](Self::poll). Items live in `items` until the next reset,
-/// so [`poll`] can hand out borrowed payload slices safely. The backing `Vec`
+/// so [`poll`](Self::poll) can hand out borrowed payload slices safely. The backing `Vec`
 /// keeps its capacity across ticks → no steady-state allocation.
 pub(crate) struct InboundQueue<P> {
     items: Vec<Inbound<P>>,

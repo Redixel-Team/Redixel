@@ -1,4 +1,4 @@
-/// Implementation detail of [`entry_point!`]. Not public API.
+/// Implementation detail of [`entry_point!`](crate::entry_point). Not public API.
 #[doc(hidden)]
 pub mod __private {
     #[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]

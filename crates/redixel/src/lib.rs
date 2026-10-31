@@ -1,3 +1,5 @@
+//! Public façade of the Redixel 2D & 3D game engine: the `prelude`, the `entry_point!` macro and the per-platform `run_*` functions.
+
 use std::sync::RwLockReadGuard;
 
 use winit::event_loop::{ControlFlow, EventLoop};
@@ -62,7 +64,7 @@ pub fn run_desktop<G: Game>(game: G) -> Result<(), RedixelError> {
 }
 
 /// Like [`run_desktop`] but with an explicit [`RuntimeConfig`] — use this to run
-/// a **windowed client** with networking enabled (set `config.net`).
+/// a **windowed client** with networking enabled (`RuntimeConfig::with_net`).
 ///
 /// Uses `EventLoopExtRunOnDemand`, which lets the event loop return control to
 /// the caller and be re-entered — a desktop-only capability not available on
@@ -84,15 +86,15 @@ pub fn run_desktop_with<G: Game>(game: G, config: RuntimeConfig) -> Result<(), R
     Ok(())
 }
 
-/// Runs `game` as a single-player Android app, loading [`RuntimeConfig`] from
-/// `config/config.json`.
+/// Runs `game` as a single-player Android app with the default [`RuntimeConfig`]
+/// (`config/config.json` is not reachable from the app's working directory).
 #[cfg(target_os = "android")]
 pub fn run_android<G: Game>(game: G, app: AndroidApp) -> Result<(), RedixelError> {
     run_android_with(game, app, build_config())
 }
 
 /// Like [`run_android`] but with an explicit [`RuntimeConfig`] — use this to run
-/// a **windowed client** with networking enabled (set `config.net`).
+/// a **windowed client** with networking enabled (`RuntimeConfig::with_net`).
 #[cfg(target_os = "android")]
 pub fn run_android_with<G: Game>(game: G, app: AndroidApp, config: RuntimeConfig) -> Result<(), RedixelError> {
     use winit::platform::android::EventLoopBuilderExtAndroid;
@@ -114,8 +116,8 @@ pub fn run_android_with<G: Game>(game: G, app: AndroidApp, config: RuntimeConfig
     Ok(())
 }
 
-/// Runs `game` as a single-player iOS app, loading [`RuntimeConfig`] from
-/// `config/config.json`. Unlike desktop/Android, this is not reached through
+/// Runs `game` as a single-player iOS app with the default [`RuntimeConfig`]
+/// (`config/config.json` is not reachable from the app). Unlike desktop/Android, this is not reached through
 /// the crate's own `fn main()` — `UIApplicationMain` must be called before
 /// anything else touches UIKit, so call this from a
 /// `#[unsafe(no_mangle)] extern "C" fn` exported for an Xcode project to embed
@@ -126,7 +128,7 @@ pub fn run_ios<G: Game + 'static>(game: G) -> Result<(), RedixelError> {
 }
 
 /// Like [`run_ios`] but with an explicit [`RuntimeConfig`] — use this to run a
-/// **windowed client** with networking enabled (set `config.net`).
+/// **windowed client** with networking enabled (`RuntimeConfig::with_net`).
 ///
 /// iOS has no `EventLoopExtRunOnDemand`
 /// (desktop-only), so this uses the portable [`EventLoop::run_app`], which
@@ -145,15 +147,15 @@ pub fn run_ios_with<G: Game + 'static>(game: G, config: RuntimeConfig) -> Result
     Ok(())
 }
 
-/// Runs `game` as a single-player browser app, loading [`RuntimeConfig`] from
-/// `config/config.json`.
+/// Runs `game` as a single-player browser app with the default [`RuntimeConfig`]
+/// (the browser has no filesystem to read `config/config.json` from).
 #[cfg(target_arch = "wasm32")]
 pub fn run_wasm<G: Game + 'static>(game: G) -> Result<(), RedixelError> {
     run_wasm_with(game, build_config())
 }
 
 /// Like [`run_wasm`] but with an explicit [`RuntimeConfig`] — use this to run a
-/// **windowed client** with networking enabled (set `config.net`).
+/// **windowed client** with networking enabled (`RuntimeConfig::with_net`).
 #[cfg(target_arch = "wasm32")]
 pub fn run_wasm_with<G: Game + 'static>(game: G, config: RuntimeConfig) -> Result<(), RedixelError> {
     let event_loop: EventLoop = EventLoop::new()?;

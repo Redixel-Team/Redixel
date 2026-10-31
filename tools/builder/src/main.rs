@@ -1,3 +1,5 @@
+//! Internal build tool: collects each example's `[package.metadata.game]` into the web playground's `games_manifest.json`.
+
 use std::{
     fs, io,
     path::{Path, PathBuf},
@@ -62,8 +64,14 @@ fn main() {
             continue;
         };
 
-        let Ok(manifest): Result<CargoManifest, de::Error> = toml::from_str(&content) else {
-            continue;
+        // A manifest that fails to parse would silently drop its game from the playground.
+        let parsed: Result<CargoManifest, de::Error> = toml::from_str(&content);
+        let manifest: CargoManifest = match parsed {
+            Ok(manifest) => manifest,
+            Err(e) => {
+                eprintln!("builder: failed to parse {}: {e}", manifest_path.display());
+                std::process::exit(1);
+            }
         };
 
         let Some(game): Option<GameMetadata> = manifest.package.metadata.and_then(|m: Metadata| m.game) else {

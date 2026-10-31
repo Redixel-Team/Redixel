@@ -15,7 +15,7 @@ publish = false
 
 [package.metadata.game]
 title = "Triangle 3D"
-description = "A rotating 3D triangle demonstrating mathematical projections, Z-sorting, and 3D transformations."
+description = "A rotating 3D tetrahedron demonstrating perspective projection, depth-buffered occlusion, and 3D transformations."
 tags = ["3D", "Math", "Projection"]
 
 [lib]

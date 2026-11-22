@@ -81,6 +81,14 @@ jobs:
           args: '--features redixel-runtime/audio,redixel/audio --all-targets -- -D warnings'
           skip-examples: 'true'
 
+      - name: Lint Profiling (profiling feature)
+        uses: ./.github/actions/cargo-each
+        with:
+          subcommand: clippy
+          root-flag: '-p redixel-core -p redixel-renderer -p redixel-runtime -p redixel'
+          args: '--features redixel-runtime/profiling,redixel/profiling --all-targets -- -D warnings'
+          skip-examples: 'true'
+
       - name: Run Tests (Linux)
         if: runner.os == 'Linux'
         uses: ./.github/actions/cargo-each
@@ -110,6 +118,18 @@ jobs:
           subcommand: test
           root-flag: '-p redixel-core -p redixel-audio -p redixel-runtime -p redixel'
           args: '--features redixel-runtime/audio,redixel/audio --verbose'
+          skip-examples: 'true'
+          xvfb: 'true'
+        env:
+          WGPU_BACKEND: vulkan
+
+      - name: Test Profiling (profiling feature, Linux)
+        if: runner.os == 'Linux'
+        uses: ./.github/actions/cargo-each
+        with:
+          subcommand: test
+          root-flag: '-p redixel-core -p redixel-runtime -p redixel -p profile-compare'
+          args: '--features redixel-runtime/profiling,redixel/profiling --verbose'
           skip-examples: 'true'
           xvfb: 'true'
         env:

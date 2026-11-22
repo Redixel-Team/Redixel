@@ -49,7 +49,7 @@ Implements the `AudioManager` trait defined in `redixel-core`.
 
 The structural foundation of the engine framework.
 
-- **Responsibility:** Defines the main lifecycles (`Game` trait), the shared execution context (`GameContext`), the input action bindings, the `NetworkManager` and `AudioManager` traits, texture and sound handles (`TextureId`, `SoundId`), and the centralized error system (`RedixelError`).
+- **Responsibility:** Defines the main lifecycles (`Game` trait), the shared execution context (`GameContext`), the input action bindings, the `NetworkManager` and `AudioManager` traits, texture and sound handles (`TextureId`, `SoundId`), and the centralized error system (`RedixelError`). It also hosts the opt-in frame profiler (`profile`, behind the `profiling` feature), which the runtime and renderer mark phases through without depending on each other; see [Frame Profiling](./profiling.md).
 - **Dependencies:** Relies on `redixel-math` for type definitions, and on `winit` only for its input types (`KeyCode`, `MouseButton`) and window errors. It knows nothing of the runtime or the renderer: the `wgpu` error variants sit behind an optional `wgpu` feature.
 
 ## 8\. Mathematics Layer (`redixel-math`)

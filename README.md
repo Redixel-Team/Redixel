@@ -57,6 +57,7 @@ Most of them also run in the [online playground](https://redixel-web.vercel.app/
 | [Android](./docs/platforms/android.md)       | SDK/NDK setup, running on a device, building the APK        |
 | [iOS](./docs/platforms/ios.md)               | Building the static library and embedding it in Xcode       |
 | [Multiplayer](./docs/multiplayer.md)         | Dedicated server, clients, cross-play, browser cert pinning |
+| [Profiling](./docs/profiling.md)             | Per-phase frame timings and comparing two runs              |
 | [Architecture](./docs/architecture.md)       | Crate layers and directory structure                        |
 | [Configuration](./config/CONFIG.md)          | `config.json` options                                       |
 | [Roadmap](./ROADMAP.md)                      | What is done and what is planned, phase by phase            |

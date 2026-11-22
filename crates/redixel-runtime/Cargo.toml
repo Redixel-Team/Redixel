@@ -10,6 +10,7 @@ repository.workspace = true
 [features]
 net = ["dep:redixel-net"]
 audio = ["dep:redixel-audio"]
+profiling = ["redixel-core/profiling"]
 
 [dependencies]
 # Internal crates

@@ -1960,6 +1960,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "profile-compare"
+version = "0.6.0"
+dependencies = [
+ "serde_json",
+]
+
+[[package]]
 name = "profiling"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"

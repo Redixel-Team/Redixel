@@ -2,7 +2,7 @@
 //!
 //! Compiled in by the `profiling` feature and switched on at run time by `REDIXEL_PROFILE=1`.
 //! Without the feature, or on `wasm32` where `std::time::Instant` is unavailable, every function
-//! here is an empty `#[inline(always)]` body and the whole module costs nothing.
+//! here is an empty `#[inline(always)]` body and the whole crate costs nothing.
 //!
 //! # Model
 //!
@@ -24,23 +24,21 @@
 //! | `REDIXEL_PROFILE_OUT`      | `redixel-profile.json` | report path                                |
 //! | `REDIXEL_PROFILE_VARIANT`  | `unlabeled`            | label recorded in the report               |
 
+use redixel_core::RedixelError;
 use serde_json::Value;
-
-use crate::RedixelError;
 
 /// The line [`finish`] writes to stderr once the report is on disk. A script waiting on a
 /// measurement run can match it exactly.
 pub const DONE_MARKER: &str = "REDIXEL_PROFILE_DONE";
 
 #[cfg(all(feature = "profiling", not(target_arch = "wasm32")))]
-#[path = "profile/active.rs"]
+#[path = "active.rs"]
 mod imp;
 
 #[cfg(not(all(feature = "profiling", not(target_arch = "wasm32"))))]
 mod imp {
+    use redixel_core::RedixelError;
     use serde_json::Value;
-
-    use crate::RedixelError;
 
     #[inline(always)]
     pub(super) fn begin_frame() {}

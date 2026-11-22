@@ -1659,6 +1659,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "redixel-profile"
+version = "0.6.0"
+dependencies = [
+ "log",
+ "redixel-core",
+ "serde_json",
+]
+
+[[package]]
 name = "redixel-renderer"
 version = "0.6.0"
 dependencies = [
@@ -1668,6 +1677,7 @@ dependencies = [
  "log",
  "redixel-core",
  "redixel-math",
+ "redixel-profile",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wgpu",
@@ -1684,6 +1694,7 @@ dependencies = [
  "redixel-core",
  "redixel-math",
  "redixel-platform",
+ "redixel-profile",
  "redixel-renderer",
  "serde",
  "serde_json",

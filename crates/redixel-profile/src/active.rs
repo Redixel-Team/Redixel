@@ -4,9 +4,10 @@ use std::{
     time::{Duration, Instant},
 };
 
+use redixel_core::RedixelError;
 use serde_json::{Map, Value, json};
 
-use crate::{RedixelError, profile::DONE_MARKER};
+use crate::DONE_MARKER;
 
 const DEFAULT_WARMUP: u64 = 120;
 const DEFAULT_FRAMES: u64 = 600;

@@ -1,5 +1,6 @@
-use redixel_core::{TextureId, profile};
+use redixel_core::TextureId;
 use redixel_math::{Color, Vec2, Vec3};
+use redixel_profile as profile;
 use wgpu::{Buffer, BufferDescriptor, BufferUsages, Device, IndexFormat, Queue, RenderPass};
 
 use crate::{pipeline::Vertex, texture::TextureRegistry};

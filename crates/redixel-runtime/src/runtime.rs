@@ -10,10 +10,11 @@ use std::{
 
 #[cfg(not(feature = "audio"))]
 use redixel_core::NoOpAudio;
-use redixel_core::{AudioConfig, AudioManager, Game, RedixelError, game::GameContext, net::NetworkManager, profile};
+use redixel_core::{AudioConfig, AudioManager, Game, RedixelError, game::GameContext, net::NetworkManager};
 #[cfg(feature = "net")]
 use redixel_net::NetConfig;
 use redixel_platform::{WindowManager, window::WindowConfig};
+use redixel_profile as profile;
 use redixel_renderer::{Renderer, RendererConfig};
 use wgpu::AdapterInfo;
 use winit::{

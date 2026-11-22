@@ -1,4 +1,4 @@
-//! Compares two frame-profile reports (`redixel_core::profile`) phase by phase and says which run is faster.
+//! Compares two frame-profile reports (`redixel_profile`) phase by phase and says which run is faster.
 //!
 //! Usage: `profile-compare <before.json> <after.json>`
 

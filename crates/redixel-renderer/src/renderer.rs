@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
-use redixel_core::{RedixelError, TextureId, profile};
+use redixel_core::{RedixelError, TextureId};
 use redixel_math::{Color, Mat4, Vec2, Vec3};
+use redixel_profile as profile;
 use wgpu::{
     AdapterInfo, Backends, CommandEncoder, CommandEncoderDescriptor,
     CurrentSurfaceTexture::{Lost, Occluded, Outdated, Suboptimal, Success, Timeout, Validation},

@@ -6,7 +6,6 @@ pub mod error;
 pub mod game;
 pub mod input;
 pub mod net;
-pub mod profile;
 pub mod texture;
 
 pub use audio::{AudioChannel, AudioConfig, AudioManager, MusicOptions, NoOpAudio, SoundId};

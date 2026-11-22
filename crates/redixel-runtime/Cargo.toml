@@ -10,7 +10,7 @@ repository.workspace = true
 [features]
 net = ["dep:redixel-net"]
 audio = ["dep:redixel-audio"]
-profiling = ["redixel-core/profiling"]
+profiling = ["redixel-profile/profiling"]
 
 [dependencies]
 # Internal crates
@@ -20,6 +20,7 @@ redixel-renderer = { workspace = true }
 redixel-math = { workspace = true }
 redixel-net = { workspace = true, optional = true }
 redixel-audio = { workspace = true, optional = true }
+redixel-profile = { workspace = true }
 
 # External crates
 log = { workspace = true }

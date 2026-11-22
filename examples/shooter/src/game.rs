@@ -543,7 +543,6 @@ impl Shooter {
     /// Steers homing bullets, advances all bullets, spawns their trail sparks,
     /// and expires the ones that ran out of life or left the arena.
     fn step_bullets(&mut self, dt: f32, w: f32, h: f32) {
-        let agents_len: usize = self.agents.len();
         let bullets_len: usize = self.bullets.len();
         let trail_due: bool = Self::tick_clock(&mut self.trail_clock, dt, TRAIL_INTERVAL);
 
@@ -555,9 +554,7 @@ impl Shooter {
                 let mut target_pos: Vec2 = Vec2::ZERO;
                 let mut found: bool = false;
 
-                for j in 0..agents_len {
-                    let agent: &Agent = &self.agents[j];
-
+                for agent in &self.agents {
                     if agent.id != b.owner_id {
                         let dist_sq: f32 = (agent.pos - b.pos).length_sq();
 
@@ -793,9 +790,7 @@ impl Shooter {
 
     /// Draws every bullet with its weapon color and a soft glow.
     fn draw_bullets(&self, ctx: &mut dyn GameContext<Action>, shake_offset: Vec2) {
-        let bullets_len: usize = self.bullets.len();
-        for i in 0..bullets_len {
-            let b: &Bullet = &self.bullets[i];
+        for b in &self.bullets {
             let (r, g, b_c): (u8, u8, u8) = get_weapon_color(b.weapon);
 
             let b_color: Color = Color::from_rgba8(r, g, b_c, 255);

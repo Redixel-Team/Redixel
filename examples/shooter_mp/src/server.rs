@@ -405,14 +405,9 @@ impl Server {
             let owner_i: ClientId = self.bullets[i].owner;
             let vel_i: Vec2 = self.bullets[i].vel;
 
-            let mut hit_index: Option<usize> = None;
-            for k in 0..self.agents.len() {
-                let agent: &ServerAgent = &self.agents[k];
-                if agent.owner != owner_i && overlaps(pos_i, size_i, agent.pos, ENTITY_SIZE) {
-                    hit_index = Some(k);
-                    break;
-                }
-            }
+            let hit_index: Option<usize> = self.agents.iter().position(|agent: &ServerAgent| {
+                agent.owner != owner_i && overlaps(pos_i, size_i, agent.pos, ENTITY_SIZE)
+            });
 
             if let Some(k) = hit_index {
                 let (hit_pos, dead): (Vec2, bool) = {

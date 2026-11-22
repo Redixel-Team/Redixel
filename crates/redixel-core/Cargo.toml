@@ -9,6 +9,7 @@ repository.workspace = true
 
 [features]
 wgpu = ["dep:wgpu"]
+profiling = []
 
 [dependencies]
 # Internal crates

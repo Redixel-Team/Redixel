@@ -112,7 +112,7 @@ Phases are grouped by area, not a strict sequence: work lands where it is needed
 
 - [ ] **Debug UI:** Implement a simple immediate-mode text/button renderer for changing variables at runtime.
 - [ ] **Hot-Reloading:** Enable updating of Textures, Shaders, and configs on-the-fly without restarting the engine.
-- [ ] **Profiler:** Implement internal timers to measure function execution speed and memory usage ([#89]). _(partial: `tools/fps-bench` measures frame times and allocations in CI, outside the engine)_
+- [ ] **Profiler:** Implement internal timers to measure function execution speed and memory usage ([#89]). _(partial: the opt-in `profiling` feature times named frame phases and writes a JSON report that `tools/profile-compare` diffs; `tools/fps-bench` measures frame times and allocations in CI. Memory is not covered)_
 
 ## **Phase 11 — Networking (Multiplayer)**
 

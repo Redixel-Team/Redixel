@@ -1,5 +1,6 @@
 use redixel_core::TextureId;
 use redixel_math::{Color, Vec2, Vec3};
+use redixel_profile as profile;
 use wgpu::{Buffer, BufferDescriptor, BufferUsages, Device, IndexFormat, Queue, RenderPass};
 
 use crate::{pipeline::Vertex, texture::TextureRegistry};
@@ -208,11 +209,13 @@ impl GeometryBuffers {
             return;
         }
 
+        profile::phase("buffer_upload");
         self.reserve(device);
 
         queue.write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&self.geometry.vertices));
         queue.write_buffer(&self.index_buffer, 0, bytemuck::cast_slice(&self.geometry.indices));
 
+        profile::phase("draw");
         pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         pass.set_index_buffer(self.index_buffer.slice(..), IndexFormat::Uint32);
 

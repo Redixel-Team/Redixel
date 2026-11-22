@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),  
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.7.0]
+
+### Added
+
+- **Core:** `profile`, an opt-in frame profiler behind the `profiling` feature, timing named phases of every frame from input through submit and present. Builds without the feature pay nothing.
+- **Runtime:** profiling runs are configured through `REDIXEL_PROFILE*` environment variables, with no rebuild; the app writes a JSON report, prints `REDIXEL_PROFILE_DONE` to stderr and exits. See `docs/profiling.md`.
+- **Renderer:** `Renderer::adapter_info` and `Renderer::present_mode`, the mode the surface actually runs with after any fallback.
+- **Tooling:** `tools/profile-compare`, which diffs two profile reports phase by phase and says whether the second run is faster, slower or within noise.
+
 ## [0.6.0]
 
 ### Added

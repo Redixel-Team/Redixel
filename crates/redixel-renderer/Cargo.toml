@@ -11,6 +11,7 @@ repository.workspace = true
 # Internal crates
 redixel-core = { workspace = true, features = ["wgpu"] }
 redixel-math = { workspace = true, features = ["wgpu"] }
+redixel-profile = { workspace = true }
 
 # External crates
 log = { workspace = true }

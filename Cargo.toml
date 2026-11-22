@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/*", "tools/builder", "tools/fps-bench"]
+members = ["crates/*", "tools/builder", "tools/fps-bench", "tools/profile-compare"]
 resolver = "2"
 
 [workspace.package]
@@ -25,6 +25,7 @@ redixel-renderer = { path = "crates/redixel-renderer" }
 redixel-runtime = { path = "crates/redixel-runtime" }
 redixel-net = { path = "crates/redixel-net" }
 redixel-audio = { path = "crates/redixel-audio" }
+redixel-profile = { path = "crates/redixel-profile" }
 
 # External crates
 android_logger = "0.15.1"

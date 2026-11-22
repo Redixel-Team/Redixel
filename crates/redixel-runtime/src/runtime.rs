@@ -14,7 +14,9 @@ use redixel_core::{AudioConfig, AudioManager, Game, RedixelError, game::GameCont
 #[cfg(feature = "net")]
 use redixel_net::NetConfig;
 use redixel_platform::{WindowManager, window::WindowConfig};
+use redixel_profile as profile;
 use redixel_renderer::{Renderer, RendererConfig};
+use wgpu::AdapterInfo;
 use winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
@@ -411,12 +413,15 @@ impl<G: Game> Runtime<G> {
             return;
         };
 
+        profile::begin_frame();
+        profile::phase("input");
         state.sim.context.tick_input();
         state.sim.time.begin_frame();
 
         let frame_delta: f64 = state.sim.time.delta_time();
         state.sim.context.update_timing(frame_delta, state.sim.time.fps());
 
+        profile::phase("fixed_update");
         match state.sim.run_fixed_updates(frame_delta) {
             StepFlow::Exit => {
                 event_loop.exit();
@@ -430,6 +435,7 @@ impl<G: Game> Runtime<G> {
             StepFlow::Continue => {}
         }
 
+        profile::phase("update");
         state.sim.context.set_fixed_alpha(state.sim.time.interpolation_alpha());
         state.sim.game.on_update(&mut state.sim.context);
 
@@ -438,11 +444,14 @@ impl<G: Game> Runtime<G> {
             return;
         }
 
+        profile::phase("render_callback");
         state.sim.game.on_render(&mut state.sim.context);
 
+        profile::phase("resource_upload");
         Self::upload_textures(&mut state.renderer, &mut state.sim.context);
         Self::upload_sounds(state.audio.as_mut(), &mut state.sim.context);
 
+        profile::phase("dispatch");
         for cmd in state.sim.context.drain_commands() {
             match cmd {
                 DrawCommand::ClearColor(c) => {
@@ -476,6 +485,7 @@ impl<G: Game> Runtime<G> {
             }
         }
 
+        profile::phase("audio");
         for cmd in state.sim.context.drain_audio_commands() {
             match cmd {
                 AudioCommand::PlaySound { clip, volume, pitch } => {
@@ -510,6 +520,7 @@ impl<G: Game> Runtime<G> {
             }
         }
 
+        profile::phase("frame_end");
         state.sim.context.reset_frame();
         state.sim.time.end_frame();
 
@@ -519,6 +530,14 @@ impl<G: Game> Runtime<G> {
             .every_seconds(1.0, |fps: f64| state.window.set_title_stats(fps, state.sim.context.rtt_ms()));
 
         state.window.request_redraw();
+
+        if profile::end_frame() {
+            if let Err(e) = profile::finish(profile_meta(&self.config, &state.renderer)) {
+                self.fatal_error = Some(e);
+            }
+
+            event_loop.exit();
+        }
     }
 
     fn on_window_event(&mut self, event_loop: &dyn ActiveEventLoop, event: WindowEvent) {
@@ -553,6 +572,39 @@ impl<G: Game> Runtime<G> {
             }
         }
     }
+}
+
+/// What a frame profile needs to say about the run: the application, the GPU, and the
+/// pacing settings that decide whether its numbers mean anything.
+///
+/// `binary` is the executable's name. It is what tells two games apart: `app` comes from
+/// `config.json`'s `app.name`, which every example run from the repository root shares.
+fn profile_meta(config: &RuntimeConfig, renderer: &Renderer) -> serde_json::Value {
+    let info: &AdapterInfo = renderer.adapter_info();
+    let (width, height): (u32, u32) = renderer.surface_size();
+    let driver: String = format!("{} {}", info.driver.trim(), info.driver_info.trim());
+    let binary: String = std::env::current_exe()
+        .ok()
+        .and_then(|path: std::path::PathBuf| {
+            path.file_stem()
+                .map(|stem: &std::ffi::OsStr| stem.to_string_lossy().into_owned())
+        })
+        .unwrap_or_default();
+
+    serde_json::json!({
+        "app": config.window.title,
+        "binary": binary,
+        "adapter": {
+            "name": info.name,
+            "backend": format!("{:?}", info.backend),
+            "device_type": format!("{:?}", info.device_type),
+            "driver": driver.trim(),
+        },
+        "present_mode": format!("{:?}", renderer.present_mode()),
+        "surface": [width, height],
+        "target_fps": config.target_fps,
+        "tickrate": config.tickrate,
+    })
 }
 
 impl<G: Game> Drop for Runtime<G> {

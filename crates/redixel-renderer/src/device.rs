@@ -21,12 +21,13 @@ pub(crate) const DEPTH_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 /// All configurable behaviour is injected via [`RendererConfig`].
 #[derive(Debug)]
 pub(crate) struct GpuDevice {
-    pub(crate) instance:   Instance,
-    pub(crate) surface:    Option<Surface<'static>>,
-    pub(crate) device:     Device,
-    pub(crate) queue:      Queue,
-    pub(crate) config:     SurfaceConfiguration,
-    pub(crate) depth_view: TextureView,
+    pub(crate) instance:     Instance,
+    pub(crate) surface:      Option<Surface<'static>>,
+    pub(crate) device:       Device,
+    pub(crate) queue:        Queue,
+    pub(crate) config:       SurfaceConfiguration,
+    pub(crate) depth_view:   TextureView,
+    pub(crate) adapter_info: AdapterInfo,
 }
 
 impl GpuDevice {
@@ -52,6 +53,7 @@ impl GpuDevice {
             instance,
             surface: Some(surface),
             depth_view,
+            adapter_info: adapter.get_info(),
         })
     }
 

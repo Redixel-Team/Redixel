@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
-use redixel_core::{RedixelError, TextureId};
+use redixel_core::{RedixelError, TextureId, profile};
 use redixel_math::{Color, Mat4, Vec2, Vec3};
 use wgpu::{
-    Backends, CommandEncoder, CommandEncoderDescriptor,
+    AdapterInfo, Backends, CommandEncoder, CommandEncoderDescriptor,
     CurrentSurfaceTexture::{Lost, Occluded, Outdated, Suboptimal, Success, Timeout, Validation},
     LoadOp, Operations, PresentMode, RenderPass, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
     RenderPassDescriptor, StoreOp, Surface, SurfaceTexture, TextureView, TextureViewDescriptor,
@@ -120,6 +120,17 @@ impl Renderer {
         (self.device.config.width, self.device.config.height)
     }
 
+    /// Describes the GPU backing this renderer.
+    pub fn adapter_info(&self) -> &AdapterInfo {
+        &self.device.adapter_info
+    }
+
+    /// The present mode the surface is configured with, which differs from the
+    /// requested one when the surface does not support it.
+    pub fn present_mode(&self) -> PresentMode {
+        self.device.config.present_mode
+    }
+
     /// Returns a mutable reference to the draw queue, for callers driving the
     /// renderer directly. Games never see it: their draw calls reach it as
     /// `DrawCommand`s dispatched by the runtime.
@@ -222,9 +233,13 @@ impl Renderer {
             return Ok(());
         };
 
+        profile::phase("uniforms");
         self.update_uniforms(time);
 
+        profile::phase("acquire");
         let output: SurfaceTexture = Self::get_surface_texture(surface)?;
+
+        profile::phase("encode");
         let view: TextureView = output.texture.create_view(&TextureViewDescriptor::default());
 
         let mut encoder: CommandEncoder = self.device.device.create_command_encoder(&CommandEncoderDescriptor {
@@ -271,7 +286,10 @@ impl Renderer {
                 .flush(&self.device.device, &self.device.queue, &mut pass, &self.textures);
         }
 
+        profile::phase("submit");
         self.device.queue.submit(std::iter::once(encoder.finish()));
+
+        profile::phase("present");
         self.device.queue.present(output);
 
         Ok(())

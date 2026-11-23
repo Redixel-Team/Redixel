@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Runtime:** the FPS in the window title counts every frame of the last second, instead of averaging the last 60 frames, which at thousands of FPS spanned a few milliseconds and swung with any single stall.
 - **Renderer:** the native present thread starts from the frame thread, so it inherits the frame thread's GPU interrupt avoidance instead of running on any CPU.
 - **Renderer:** `wgpu-hal` 30.0.2, whose Vulkan swapchain no longer passes an unreset fence to every image acquire off Windows, which the validation layers reported on every frame.
 

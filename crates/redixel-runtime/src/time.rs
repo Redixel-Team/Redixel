@@ -28,6 +28,11 @@ const DEFAULT_MAX_SUBSTEPS: u32 = 8;
 /// - [`fps`](Self::fps): instantaneous, recalculated every single frame.
 /// - [`display_fps`](Self::display_fps): rolling average over the last `FPS_WINDOW` (60) frames.
 ///
+/// [`every_seconds`](Self::every_seconds) reports neither: it hands its
+/// callback the frames counted over the whole interval, since 60 frames at
+/// thousands of FPS span only a few milliseconds and a one-off stall would
+/// swing the reading.
+///
 /// # Usage
 /// ```ignore
 /// time.begin_frame();
@@ -42,6 +47,7 @@ pub struct TimeManager {
     frame_start:        Instant,
     frame_last:         Instant,
     last_interval_tick: Instant,
+    interval_frames:    u32,
     frame_times:        [f64; FPS_WINDOW],
     frame_times_idx:    usize,
     frame_times_filled: usize,
@@ -61,6 +67,7 @@ impl TimeManager {
             frame_start:        now,
             frame_last:         now,
             last_interval_tick: now,
+            interval_frames:    0,
             frame_times:        [0.0; FPS_WINDOW],
             frame_times_idx:    0,
             frame_times_filled: 0,
@@ -200,6 +207,7 @@ impl TimeManager {
         if delta > 0.0 {
             self.fps = 1.0 / delta;
             self.push_frame_time(delta);
+            self.interval_frames += 1;
         }
     }
 
@@ -224,12 +232,25 @@ impl TimeManager {
         if avg_delta > 0.0 { 1.0 / avg_delta } else { 0.0 }
     }
 
-    /// Invokes `callback` with the current **smoothed** FPS at most once per `interval` seconds.
+    /// Invokes `callback` at most once per `interval` seconds with the frames
+    /// per second averaged over everything since the previous call.
     pub fn every_seconds<F: FnOnce(f64)>(&mut self, interval: f64, callback: F) {
         let now: Instant = Instant::now();
-        if now.duration_since(self.last_interval_tick).as_secs_f64() >= interval {
+        let elapsed: f64 = now.duration_since(self.last_interval_tick).as_secs_f64();
+        if elapsed >= interval {
             self.last_interval_tick = now;
-            callback(self.display_fps());
+            callback(self.take_interval_fps(elapsed));
+        }
+    }
+
+    /// The frames recorded over the last `elapsed` seconds per second, starting
+    /// the count over.
+    fn take_interval_fps(&mut self, elapsed: f64) -> f64 {
+        let frames: u32 = std::mem::take(&mut self.interval_frames);
+        if elapsed > 0.0 {
+            f64::from(frames) / elapsed
+        } else {
+            0.0
         }
     }
 
@@ -358,6 +379,18 @@ mod tests {
             "rolling average should absorb a single spike, got {}",
             tm.display_fps()
         );
+    }
+
+    #[test]
+    fn interval_fps_counts_every_frame_and_starts_over() {
+        let mut tm: TimeManager = TimeManager::new();
+
+        for _ in 0..500 {
+            tm.record_delta(0.001);
+        }
+
+        assert_eq!(tm.take_interval_fps(0.5), 1000.0);
+        assert_eq!(tm.take_interval_fps(0.5), 0.0, "the count restarts after each report");
     }
 
     #[test]

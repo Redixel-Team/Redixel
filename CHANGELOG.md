@@ -23,6 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Runtime:** 2D draw calls fill a `Batch2d` the runtime swaps into the renderer each frame; `DrawCommand` loses its `Rect`, `Sprite` and `Triangle` variants. Breaking for code matching on them.
 - **Renderer:** `SpriteBatch` is replaced by `Batch2d` (`DrawQueue::batch_2d`), `MeshBatch::new` no longer takes a device, and `Renderer::swap_batch_2d` hands over a filled batch without copying. Breaking for direct `redixel-renderer` consumers.
 - **Runtime:** `RuntimeConfig` gains public `event_pump_interval` and `avoid_gpu_irq_cpus` fields. Breaking for code that builds it with a struct literal instead of `windowed`/`headless`.
+- **Renderer:** the crate's modules are private; everything public is re-exported at the root under the same names (`redixel_renderer::Vertex` rather than `redixel_renderer::pipeline::Vertex`). The CPU-side types (`Vertex`, `GlobalUniforms`, `Batch2d`, `QuadInstance`, `RendererConfig`) no longer depend on `wgpu`, only on `wgpu-types`.
+- **Runtime, Math, Tooling:** `Backends`, `PresentMode`, `AdapterInfo` and `Color` come from `wgpu-types`, the crate `wgpu` re-exports them from, so the types are unchanged. `redixel-runtime` and `fps-bench` no longer depend on `wgpu`, and `redixel-math`'s `wgpu` feature pulls in only `wgpu-types`.
+- **Core:** `RedixelError::Gpu`, for failures reported as text by a graphics backend.
 
 ## [0.6.0]
 

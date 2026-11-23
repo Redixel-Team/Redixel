@@ -26,7 +26,7 @@ redixel-profile = { workspace = true }
 log = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
-wgpu = { workspace = true }
+wgpu-types = { workspace = true }
 winit = { workspace = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]

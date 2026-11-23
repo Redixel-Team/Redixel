@@ -1643,7 +1643,7 @@ dependencies = [
 name = "redixel-math"
 version = "0.6.0"
 dependencies = [
- "wgpu",
+ "wgpu-types",
 ]
 
 [[package]]
@@ -1682,6 +1682,7 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wgpu",
+ "wgpu-types",
  "winit",
 ]
 
@@ -1701,7 +1702,7 @@ dependencies = [
  "serde_json",
  "wasm-bindgen-futures",
  "web-time",
- "wgpu",
+ "wgpu-types",
  "winit",
 ]
 

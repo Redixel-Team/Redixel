@@ -19,7 +19,7 @@ use redixel_profile as profile;
 use redixel_renderer::{Renderer, RendererConfig};
 #[cfg(target_arch = "wasm32")]
 use web_time::Instant;
-use wgpu::AdapterInfo;
+use wgpu_types::AdapterInfo;
 use winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
@@ -784,8 +784,8 @@ mod tests {
                 title:      String::from("TEST_TITLE"),
             },
             RendererConfig {
-                backends:     wgpu::Backends::all(),
-                present_mode: wgpu::PresentMode::AutoVsync,
+                backends:     wgpu_types::Backends::all(),
+                present_mode: wgpu_types::PresentMode::AutoVsync,
             },
             60.0,
             60.0,

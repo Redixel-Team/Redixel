@@ -14,7 +14,7 @@ mod bench {
     use redixel::prelude::*;
     use redixel_platform::window::WindowConfig;
     use redixel_renderer::RendererConfig;
-    use wgpu::{Backends, PresentMode};
+    use wgpu_types::{Backends, PresentMode};
 
     const WARMUP: Duration = Duration::from_millis(500);
     const WARMUP_FRAMES: usize = 30;

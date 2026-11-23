@@ -8,10 +8,10 @@ authors.workspace = true
 repository.workspace = true
 
 [features]
-wgpu = ["dep:wgpu"]
+wgpu = ["dep:wgpu-types"]
 
 [dependencies]
-wgpu = { workspace = true, optional = true }
+wgpu-types = { workspace = true, optional = true }
 
 [package.metadata.docs.rs]
 all-features = true

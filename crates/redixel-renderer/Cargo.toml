@@ -16,6 +16,7 @@ redixel-profile = { workspace = true }
 # External crates
 log = { workspace = true }
 wgpu = { workspace = true }
+wgpu-types = { workspace = true }
 winit = { workspace = true }
 bytemuck = { workspace = true, features = ["derive"] }
 image = { workspace = true, features = ["png"] }

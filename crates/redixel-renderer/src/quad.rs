@@ -4,13 +4,15 @@
 //! Pure CPU data, so the runtime can fill it directly while the game renders
 //! and hand it to the renderer without copying.
 
+use std::mem::offset_of;
+
 use redixel_core::TextureId;
 use redixel_math::{Color, Vec2};
-use wgpu::wgt;
+use wgpu_types::{VertexAttribute, VertexFormat};
 
 use crate::{
-    batch::{TRIANGLE_INDICES, triangle_vertices},
-    pipeline::Vertex,
+    geometry::{TRIANGLE_INDICES, triangle_vertices},
+    shader::Vertex,
 };
 
 /// One rectangle or sprite for the instanced quad pipeline: 36 bytes, against
@@ -30,12 +32,32 @@ pub struct QuadInstance {
 }
 
 impl QuadInstance {
-    pub const ATTRIBUTES: [wgt::VertexAttribute; 5] = wgpu::vertex_attr_array![
-        0 => Float32x2,
-        1 => Float32x2,
-        2 => Unorm8x4,
-        3 => Float32x2,
-        4 => Float32x2,
+    pub const ATTRIBUTES: [VertexAttribute; 5] = [
+        VertexAttribute {
+            format:          VertexFormat::Float32x2,
+            offset:          offset_of!(QuadInstance, position) as u64,
+            shader_location: 0,
+        },
+        VertexAttribute {
+            format:          VertexFormat::Float32x2,
+            offset:          offset_of!(QuadInstance, size) as u64,
+            shader_location: 1,
+        },
+        VertexAttribute {
+            format:          VertexFormat::Unorm8x4,
+            offset:          offset_of!(QuadInstance, color) as u64,
+            shader_location: 2,
+        },
+        VertexAttribute {
+            format:          VertexFormat::Float32x2,
+            offset:          offset_of!(QuadInstance, uv_min) as u64,
+            shader_location: 3,
+        },
+        VertexAttribute {
+            format:          VertexFormat::Float32x2,
+            offset:          offset_of!(QuadInstance, uv_max) as u64,
+            shader_location: 4,
+        },
     ];
 
     pub fn new(position: Vec2, size: Vec2, color: Color, uv_min: [f32; 2], uv_max: [f32; 2]) -> Self {

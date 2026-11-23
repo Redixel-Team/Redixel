@@ -7,7 +7,7 @@ use std::{
 use redixel_core::RedixelError;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::{Error, Map, Value};
-use wgpu::{Backends, PresentMode};
+use wgpu_types::{Backends, PresentMode};
 
 #[derive(Debug, Default)]
 pub struct EngineSettings {

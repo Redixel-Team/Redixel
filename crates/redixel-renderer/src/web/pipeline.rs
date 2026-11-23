@@ -3,42 +3,19 @@ use std::num::NonZeroU64;
 use wgpu::{
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry,
     BindingResource, BindingType, BlendState, Buffer, BufferBindingType, BufferDescriptor, BufferUsages,
-    ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState, Device, FragmentState,
-    FrontFace, MultisampleState, PipelineLayout, PipelineLayoutDescriptor, PolygonMode, PrimitiveState,
-    PrimitiveTopology, Queue, RenderPipeline, RenderPipelineDescriptor, ShaderModule, ShaderModuleDescriptor,
-    ShaderSource, ShaderStages, StencilState, TextureFormat, VertexAttribute, VertexBufferLayout, VertexState,
-    VertexStepMode,
+    ColorTargetState, ColorWrites, DepthStencilState, Device, FragmentState, FrontFace, MultisampleState,
+    PipelineLayout, PipelineLayoutDescriptor, PolygonMode, PrimitiveState, PrimitiveTopology, Queue, RenderPipeline,
+    RenderPipelineDescriptor, ShaderModule, ShaderModuleDescriptor, ShaderSource, ShaderStages, TextureFormat,
+    VertexBufferLayout, VertexState, VertexStepMode,
 };
 
-use crate::{device::DEPTH_FORMAT, quad::QuadInstance};
-
-const SHADER_SRC: &str = include_str!("../shaders/shape.wgsl");
-const QUAD_SHADER_SRC: &str = include_str!("../shaders/quad.wgsl");
-
-/// A single vertex in the shape batch: 3D position + RGBA colour + texture
-/// coordinate.
-///
-/// 2D draw calls carry `z = 0.0` through; only `draw_triangle_3d` supplies a
-/// real z. Untextured geometry carries `uv = [0.0, 0.0]` and samples the
-/// registry's 1×1 white pixel, so every vertex goes through the same
-/// sample-and-multiply, textured or not.
-///
-/// `repr(C)` + packed fields → safe to cast to `&[u8]` via `bytemuck`.
-#[repr(C)]
-#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct Vertex {
-    pub position: [f32; 3],
-    pub color:    [f32; 4],
-    pub uv:       [f32; 2],
-}
+use crate::{
+    quad::QuadInstance,
+    shader::{GlobalUniforms, QUAD_SHADER_SRC, SHAPE_SHADER_SRC, Vertex, depth_2d, depth_3d},
+};
 
 impl Vertex {
-    const ATTRIBUTES: [VertexAttribute; 3] = wgpu::vertex_attr_array![
-        0 => Float32x3,
-        1 => Float32x4,
-        2 => Float32x2,
-    ];
-
+    /// The layout of the vertex buffer the shape pipelines read.
     pub fn layout() -> VertexBufferLayout<'static> {
         VertexBufferLayout {
             array_stride: std::mem::size_of::<Self>() as u64,
@@ -46,28 +23,6 @@ impl Vertex {
             attributes:   &Self::ATTRIBUTES,
         }
     }
-}
-
-/// Everything the vertex shader reads from `group(0) binding(0)`: the two
-/// column-major 4×4 camera matrices, plus the per-frame globals `resolution`
-/// and `time`. The group is visible to the vertex stage only, so a fragment
-/// effect reading them needs its visibility widened in [`ShapePipeline::new`].
-///
-/// The field order is the memory layout WGSL expects, so it is not free to
-/// change: matrices align to 16 bytes and sit first, `resolution` is a
-/// `vec2<f32>` (8-byte aligned, unlike a `vec3` which would align to 16 and need
-/// padding of its own), and `time` plus `_padding` close the struct at 144
-/// bytes — a multiple of the 16-byte struct alignment WGSL imposes on a struct
-/// containing a `mat4x4`. Leaving that padding implicit is what lets the Rust
-/// and WGSL layouts silently drift apart, so it is spelled out here instead.
-#[repr(C)]
-#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct GlobalUniforms {
-    pub view:       [[f32; 4]; 4],
-    pub projection: [[f32; 4]; 4],
-    pub resolution: [f32; 2],
-    pub time:       f32,
-    pub _padding:   f32,
 }
 
 /// The vertex half of one shape pipeline: which shader entry point runs, the
@@ -150,7 +105,7 @@ impl ShapePipeline {
     pub fn new(device: &Device, surface_format: TextureFormat, texture_layout: &BindGroupLayout) -> Self {
         let shader: ShaderModule = device.create_shader_module(ShaderModuleDescriptor {
             label:  Some("REDIXEL_SHAPE_SHADER"),
-            source: ShaderSource::Wgsl(SHADER_SRC.into()),
+            source: ShaderSource::Wgsl(SHAPE_SHADER_SRC.into()),
         });
 
         let quad_shader: ShaderModule = device.create_shader_module(ShaderModuleDescriptor {
@@ -197,7 +152,7 @@ impl ShapePipeline {
             &pipeline_layout,
             surface_format,
             "REDIXEL_SHAPE_PIPELINE_2D",
-            Self::depth_2d(),
+            depth_2d(),
             VertexStage {
                 shader:   &shader,
                 entry:    "vs_main",
@@ -211,7 +166,7 @@ impl ShapePipeline {
             &pipeline_layout,
             surface_format,
             "REDIXEL_SHAPE_PIPELINE_3D",
-            Self::depth_3d(),
+            depth_3d(),
             VertexStage {
                 shader:   &shader,
                 entry:    "vs_main",
@@ -225,7 +180,7 @@ impl ShapePipeline {
             &pipeline_layout,
             surface_format,
             "REDIXEL_QUAD_PIPELINE",
-            Self::depth_2d(),
+            depth_2d(),
             VertexStage {
                 shader:   &quad_shader,
                 entry:    "vs_quad",
@@ -245,35 +200,6 @@ impl ShapePipeline {
             bind_group_layout,
             globals_2d,
             globals_3d,
-        }
-    }
-
-    /// Depth state for 3D geometry: a real depth test, written to the buffer.
-    ///
-    /// `LessEqual` rather than `Less` so coplanar geometry resolves in
-    /// submission order instead of the second surface failing its own test.
-    fn depth_3d() -> DepthStencilState {
-        DepthStencilState {
-            format:              DEPTH_FORMAT,
-            depth_write_enabled: Some(true),
-            depth_compare:       Some(CompareFunction::LessEqual),
-            stencil:             StencilState::default(),
-            bias:                DepthBiasState::default(),
-        }
-    }
-
-    /// Depth state for 2D geometry: no test, no write.
-    ///
-    /// 2D content is painter-ordered, so later draw calls belong on top
-    /// regardless of the buffer, and writing to it would let a flat overlay
-    /// occlude the 3D scene behind it.
-    fn depth_2d() -> DepthStencilState {
-        DepthStencilState {
-            format:              DEPTH_FORMAT,
-            depth_write_enabled: Some(false),
-            depth_compare:       Some(CompareFunction::Always),
-            stencil:             StencilState::default(),
-            bias:                DepthBiasState::default(),
         }
     }
 

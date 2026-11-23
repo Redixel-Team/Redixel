@@ -10,9 +10,7 @@ use wgpu::{
 };
 use winit::{dpi::PhysicalSize, window::Window};
 
-use crate::renderer::RendererConfig;
-
-pub(crate) const DEPTH_FORMAT: TextureFormat = TextureFormat::Depth32Float;
+use crate::{config::RendererConfig, shader::DEPTH_FORMAT};
 
 /// Owns the WGPU logical device, presentation surface, and submission queue.
 ///

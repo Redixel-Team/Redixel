@@ -41,6 +41,9 @@ pub enum RedixelError {
     #[error("Surface validation error")]
     SurfaceValidation,
 
+    #[error("GPU error: {0}")]
+    Gpu(String),
+
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
 

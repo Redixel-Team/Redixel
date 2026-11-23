@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
 use redixel_core::{RedixelError, TextureId};
-use redixel_math::{Color, Mat4, Vec2, Vec3};
+use redixel_math::{Color, Vec2, Vec3};
 use redixel_profile as profile;
 use wgpu::{
-    AdapterInfo, Backends, CommandEncoder, CommandEncoderDescriptor,
+    AdapterInfo, CommandEncoder, CommandEncoderDescriptor,
     CurrentSurfaceTexture::{Lost, Occluded, Outdated, Suboptimal, Success, Timeout, Validation},
     LoadOp, Operations, PresentMode, RenderPass, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
     RenderPassDescriptor, StoreOp, Surface, SurfaceTexture, TextureView, TextureViewDescriptor,
@@ -14,34 +14,17 @@ use winit::{
     window::{self, Window},
 };
 
-use crate::{
+use super::{
     batch::{Batch2dBuffers, MeshBatch},
     device::GpuDevice,
-    pipeline::{GlobalUniforms, ShapePipeline},
-    quad::Batch2d,
+    pipeline::ShapePipeline,
     texture::TextureRegistry,
 };
-
-const CAMERA_FOV_Y_DEGREES: f32 = 60.0;
-const CAMERA_NEAR: f32 = 0.1;
-const CAMERA_FAR: f32 = 100.0;
-
-/// All renderer settings resolved from `config.json` by `redixel-runtime`
-/// and injected at construction time. The renderer never touches the config system.
-#[derive(Debug, Clone)]
-pub struct RendererConfig {
-    pub backends:     Backends,
-    pub present_mode: PresentMode,
-}
-
-impl Default for RendererConfig {
-    fn default() -> Self {
-        Self {
-            backends:     Backends::all(),
-            present_mode: PresentMode::AutoVsync,
-        }
-    }
-}
+use crate::{
+    config::{RendererConfig, frame_uniforms},
+    quad::Batch2d,
+    shader::GlobalUniforms,
+};
 
 /// Commands collected during `on_render`, submitted to the GPU in one pass.
 pub struct DrawQueue {
@@ -179,48 +162,16 @@ impl Renderer {
             .draw_triangle_3d_textured(points, uvs, texture, tint);
     }
 
-    /// Uploads this frame's [`GlobalUniforms`] to both uniform blocks.
-    ///
-    /// The matrices are rebuilt from the surface configuration every frame,
-    /// which is what keeps geometry proportional across a resize without the
-    /// resize path having to re-upload anything. `resolution` carries those
-    /// same dimensions to the shader, where the projection is no help.
-    ///
-    /// `view` is the identity in both blocks: the engine has no camera
-    /// transform yet, and 3D draw calls arrive already in view space.
-    ///
-    /// `time` is seconds since startup, narrowed to `f32` only here — WGSL
-    /// uniforms have no `f64`. Its resolution decays to about a millisecond
-    /// after a couple of hours of uptime; an effect needing better than that
-    /// wants the time reduced modulo a multiple of `TAU` by whoever calls
-    /// [`render`](Self::render), not a wider type.
+    /// Uploads this frame's [`GlobalUniforms`] (see [`frame_uniforms`]) to
+    /// both uniform blocks.
     ///
     /// Private because [`render`](Self::render) always calls it with that
     /// frame's time: an upload from anywhere else would be overwritten before
     /// it could reach a draw call.
     fn update_uniforms(&self, time: f32) {
         let (w, h): (u32, u32) = self.surface_size();
-        let resolution: [f32; 2] = [w as f32, h as f32];
-
-        let ortho: Mat4 = Mat4::orthographic(0.0, w as f32, h as f32, 0.0, -1.0, 1.0);
-        let uniforms_2d: GlobalUniforms = GlobalUniforms {
-            view: Mat4::IDENTITY.cols,
-            projection: ortho.cols,
-            resolution,
-            time,
-            _padding: 0.0,
-        };
+        let (uniforms_2d, uniforms_3d): (GlobalUniforms, GlobalUniforms) = frame_uniforms(w, h, time);
         self.pipeline.globals_2d.update(&self.device.queue, &uniforms_2d);
-
-        let aspect: f32 = w as f32 / h as f32;
-        let perspective: Mat4 = Mat4::perspective(CAMERA_FOV_Y_DEGREES.to_radians(), aspect, CAMERA_NEAR, CAMERA_FAR);
-        let uniforms_3d: GlobalUniforms = GlobalUniforms {
-            view: Mat4::IDENTITY.cols,
-            projection: perspective.cols,
-            resolution,
-            time,
-            _padding: 0.0,
-        };
         self.pipeline.globals_3d.update(&self.device.queue, &uniforms_3d);
     }
 

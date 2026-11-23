@@ -38,6 +38,7 @@ serde_json = { version = "1.0", features = ["preserve_order"] }
 thiserror = "2"
 winit = "0.31.0-beta.2"
 wgpu = "30.0.0"
+wgpu-types = "30.0.0"
 bytemuck = "1.25.0"
 bytes = "1.12.0"
 image = { version = "0.25.10", default-features = false }

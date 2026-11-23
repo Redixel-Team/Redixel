@@ -166,14 +166,16 @@ impl Default for Color {
     }
 }
 
-/// Converts to a `wgpu::Color` for use in render pass clear values.
+/// Converts to the `wgpu-types` colour (re-exported as `wgpu::Color`) for use
+/// in render pass clear values.
 ///
 /// Gated behind the `wgpu` feature so this crate does not force a graphics-API
-/// dependency on consumers that only want the maths.
+/// dependency on consumers that only want the maths; the feature pulls in only
+/// `wgpu-types`, not `wgpu` itself.
 #[cfg(feature = "wgpu")]
-impl From<Color> for wgpu::Color {
+impl From<Color> for wgpu_types::Color {
     fn from(c: Color) -> Self {
-        wgpu::Color {
+        wgpu_types::Color {
             r: c.r as f64,
             g: c.g as f64,
             b: c.b as f64,

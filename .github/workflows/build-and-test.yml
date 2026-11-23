@@ -350,13 +350,13 @@ jobs:
             echo "<p align=\"center\"><sub>Measures CPU-side engine cost (batching, frame loop) under a software-rendered GPU — not representative of real hardware FPS. See the job log for the adapter actually used.</sub></p>"
             echo
             echo "<table align=\"center\">"
-            echo "<thead><tr><th align=\"center\">Scene</th><th align=\"center\">Median FPS</th><th align=\"center\">Spread</th><th align=\"center\">Frame Time (ms)</th><th align=\"center\">P95 Frame Time (ms)</th><th align=\"center\">Allocations</th></tr></thead>"
+            echo "<thead><tr><th align=\"center\">Scene</th><th align=\"center\">Median FPS</th><th align=\"center\">Spread</th><th align=\"center\">1% Low FPS</th><th align=\"center\">Frame Time (ms)</th><th align=\"center\">P99 Frame Time (ms)</th><th align=\"center\">Allocations / Frame</th></tr></thead>"
             echo "<tbody>"
-            jq -r '.tiers[] | "<tr><td align=\"center\">\(.scene)</td><td align=\"center\"><strong>\(.median_fps)</strong></td><td align=\"center\">\(.spread_pct)% (\(.fps_min)–\(.fps_max))</td><td align=\"center\">\(.median_frame_ms)</td><td align=\"center\">\(.median_p95_frame_ms)</td><td align=\"center\">\(.allocations) (\(.allocated_bytes) B)</td></tr>"' benchmark_result.json
+            jq -r '.tiers[] | "<tr><td align=\"center\">\(.scene)</td><td align=\"center\"><strong>\(.median_fps)</strong></td><td align=\"center\">\(.spread_pct)% (\(.fps_min)–\(.fps_max))</td><td align=\"center\">\(.median_low_1pct_fps)</td><td align=\"center\">\(.median_frame_ms)</td><td align=\"center\">\(.median_p99_frame_ms)</td><td align=\"center\">\(.allocs_per_frame) (\(.bytes_per_frame) B)</td></tr>"' benchmark_result.json
             echo "</tbody>"
             echo "</table>"
             echo
-            echo "<p align=\"center\"><sub>Median of $(jq -r '.rounds' benchmark_result.json) rounds per tier, $(jq -r '.measure_frames' benchmark_result.json) frames each after a warmup of at least $(jq -r '.warmup_ms' benchmark_result.json) ms and $(jq -r '.warmup_frames' benchmark_result.json) frames, tiers interleaved · Marginal cost: <strong>$(jq -r '.marginal_ms_per_1000_quads' benchmark_result.json) ms</strong> per 1000 additional quads · <strong>Spread is how far apart identical runs landed — treat any FPS delta below it as noise</strong> · allocations are deterministic and the most reliable column here.</sub></p>"
+            echo "<p align=\"center\"><sub>Median of $(jq -r '.rounds' benchmark_result.json) rounds per tier, $(jq -r '.measure_ms' benchmark_result.json) ms each after a warmup of at least $(jq -r '.warmup_ms' benchmark_result.json) ms and $(jq -r '.warmup_frames' benchmark_result.json) frames, tiers interleaved · Marginal cost: <strong>$(jq -r '.marginal_ms_per_1000_quads' benchmark_result.json) ms</strong> per 1000 additional quads · <strong>Spread is how far apart identical runs landed — treat any FPS delta below it as noise</strong> · 1% low is the frame rate over the slowest 1% of frames · allocations per frame are the most reliable column here.</sub></p>"
           } > benchmark_summary.md
 
       - name: Show Results in Job Summary

@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Runtime, Math, Tooling:** `Backends`, `PresentMode`, `AdapterInfo` and `Color` come from `wgpu-types`, the crate `wgpu` re-exports them from, so the types are unchanged. `redixel-runtime` and `fps-bench` no longer depend on `wgpu`, and `redixel-math`'s `wgpu` feature pulls in only `wgpu-types`.
 - **Core:** `RedixelError::Gpu`, for failures reported as text by a graphics backend.
 - **Renderer:** `DrawQueue`, `MeshBatch`, `ShapePipeline`, `TextureRegistry`, `UniformBlock` and `Renderer::draw_queue_mut` exist only on the web, where the renderer is still built on `wgpu`. `RendererConfig` gains a public `present_spin` field. Breaking for direct `redixel-renderer` consumers.
+- **Tooling:** `fps-bench` measures each round for 2 seconds instead of 300 frames, which at thousands of FPS spanned a couple of display refreshes and swung with any compositor stall. It also reports the p99 frame time and the 1% low (`median_p99_frame_ms`, `median_low_1pct_fps`), and allocations per frame (`allocs_per_frame`, `bytes_per_frame`) instead of per window; `measure_frames` becomes `measure_ms`.
 - **Core:** native builds no longer depend on `wgpu`; the renderer enables `redixel-core`'s `wgpu` feature, and with it the `wgpu` error variants, only on the web.
 
 ### Fixed

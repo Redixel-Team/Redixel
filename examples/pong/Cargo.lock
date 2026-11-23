@@ -1482,6 +1482,7 @@ dependencies = [
 name = "redixel-platform"
 version = "0.6.0"
 dependencies = [
+ "libc",
  "log",
  "redixel-core",
  "redixel-math",

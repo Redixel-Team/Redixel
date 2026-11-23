@@ -7,29 +7,16 @@ use redixel_core::{
 };
 use redixel_math::{Color, Vec2, Vec3};
 use redixel_platform::InputManager;
+use redixel_renderer::Batch2d;
 
 /// A draw command buffered during `on_render` and flushed by the runtime.
+///
+/// 2D shapes and sprites are not commands: they go straight into the context's
+/// 2D batch, in the form the renderer draws them.
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub enum DrawCommand {
     ClearColor(Color),
-    Rect {
-        position: Vec2,
-        size:     Vec2,
-        color:    Color,
-    },
-    Sprite {
-        position: Vec2,
-        size:     Vec2,
-        texture:  TextureId,
-        tint:     Color,
-    },
-    Triangle {
-        p1:    Vec2,
-        p2:    Vec2,
-        p3:    Vec2,
-        color: Color,
-    },
     Triangle3d {
         p1:    Vec3,
         p2:    Vec3,
@@ -84,7 +71,8 @@ pub struct SoundRequest {
 /// `redixel-core` free of any dependency on `redixel-runtime`.
 ///
 /// Timing fields are updated by the runtime before each `on_update`.
-/// Draw commands are accumulated during `on_render` and drained after.
+/// Draw commands are accumulated during `on_render` and drained after; 2D draws
+/// fill a batch the runtime swaps into the renderer instead, with no copy.
 pub struct Context<A: InputAction> {
     should_exit: bool,
     error: Option<RedixelError>,
@@ -101,6 +89,7 @@ pub struct Context<A: InputAction> {
     volumes: AudioConfig,
     pub(crate) input: InputManager<A>,
     pub(crate) commands: Vec<DrawCommand>,
+    pub(crate) batch_2d: Batch2d,
     pub(crate) texture_requests: Vec<TextureRequest>,
     pub(crate) audio_commands: Vec<AudioCommand>,
     pub(crate) sound_requests: Vec<SoundRequest>,
@@ -131,6 +120,7 @@ impl<A: InputAction> Context<A> {
             volumes: AudioConfig::default(),
             input: InputManager::new(),
             commands: Vec::with_capacity(1024),
+            batch_2d: Batch2d::default(),
             texture_requests: Vec::new(),
             audio_commands: Vec::new(),
             sound_requests: Vec::new(),
@@ -258,6 +248,7 @@ impl<A: InputAction> Context<A> {
     pub(crate) fn reset_frame(&mut self) {
         self.should_exit = false;
         self.commands.clear();
+        self.batch_2d.clear();
         self.texture_requests.clear();
         self.audio_commands.clear();
         self.sound_requests.clear();
@@ -366,11 +357,11 @@ impl<A: InputAction> GameContext<A> for Context<A> {
     }
 
     fn draw_triangle(&mut self, p1: Vec2, p2: Vec2, p3: Vec2, color: Color) {
-        self.commands.push(DrawCommand::Triangle { p1, p2, p3, color });
+        self.batch_2d.push_triangle(p1, p2, p3, color);
     }
 
     fn draw_rect(&mut self, position: Vec2, size: Vec2, color: Color) {
-        self.commands.push(DrawCommand::Rect { position, size, color });
+        self.batch_2d.push_rect(position, size, color);
     }
 
     fn draw_sprite(&mut self, position: Vec2, size: Vec2, texture: TextureId) {
@@ -378,12 +369,7 @@ impl<A: InputAction> GameContext<A> for Context<A> {
     }
 
     fn draw_sprite_tinted(&mut self, position: Vec2, size: Vec2, texture: TextureId, tint: Color) {
-        self.commands.push(DrawCommand::Sprite {
-            position,
-            size,
-            texture,
-            tint,
-        });
+        self.batch_2d.push_sprite(position, size, texture, tint);
     }
 
     fn draw_triangle_3d(&mut self, p1: Vec3, p2: Vec3, p3: Vec3, color: Color) {

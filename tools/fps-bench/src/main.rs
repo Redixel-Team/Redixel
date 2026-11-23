@@ -233,7 +233,13 @@ mod bench {
     pub fn main() {
         env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
-        let schedule: Vec<usize> = (0..ROUNDS).flat_map(|_| 0..TIERS.len()).collect();
+        let only_quads: Option<usize> = std::env::var("FPS_BENCH_QUADS")
+            .ok()
+            .and_then(|v: String| v.parse::<usize>().ok());
+        let schedule: Vec<usize> = (0..ROUNDS)
+            .flat_map(|_| 0..TIERS.len())
+            .filter(|&tier: &usize| only_quads.is_none_or(|q: usize| TIERS[tier].0 == q))
+            .collect();
         let collected: Arc<Mutex<Vec<Vec<Sample>>>> =
             Arc::new(Mutex::new((0..TIERS.len()).map(|_| Vec::with_capacity(ROUNDS)).collect()));
 

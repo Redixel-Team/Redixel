@@ -56,12 +56,13 @@ Settings for the fixed-update simulation loop.
 
 Settings controlling the application window dimensions and behavior.
 
-| Field        | Type    | Description                                                                                                     |
-| :----------- | :------ | :-------------------------------------------------------------------------------------------------------------- |
-| `width`      | Integer | The initial width of the window in pixels.                                                                      |
-| `height`     | Integer | The initial height of the window in pixels.                                                                     |
-| `fullscreen` | Boolean | `true` to start in fullscreen mode, `false` for windowed mode.                                                  |
-| `target_fps` | Float   | Cap on the render loop's frames per second (`0` uncaps it). Ignored on the web, where the browser paces frames. |
+| Field                    | Type    | Description                                                                                                                                                                                                                                                                                                   |
+| :----------------------- | :------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `width`                  | Integer | The initial width of the window in pixels.                                                                                                                                                                                                                                                                    |
+| `height`                 | Integer | The initial height of the window in pixels.                                                                                                                                                                                                                                                                   |
+| `fullscreen`             | Boolean | `true` to start in fullscreen mode, `false` for windowed mode.                                                                                                                                                                                                                                                |
+| `target_fps`             | Float   | Cap on the render loop's frames per second (`0` uncaps it). Ignored on the web, where the browser paces frames.                                                                                                                                                                                               |
+| `event_pump_interval_us` | Integer | How long, in microseconds, frames may run back to back before window events are dispatched again (default `500` on desktop). Input is at most this late; below `1 000 000 / value` FPS it changes nothing. `0` returns to the event loop after every frame, which costs about a dozen system calls per frame. |
 
 **Example:**
 
@@ -70,7 +71,8 @@ Settings controlling the application window dimensions and behavior.
     "width": 1280,
     "height": 720,
     "fullscreen": false,
-    "target_fps": 60.0
+    "target_fps": 60.0,
+    "event_pump_interval_us": 500
 }
 ```
 
@@ -81,6 +83,10 @@ Settings controlling the application window dimensions and behavior.
 Technical settings for the graphics backend.
 
 **Note:** The values in this section are **integer mappings** that correspond directly to the underlying graphics library's enums (e.g., `wgpu::Backends` and `wgpu::PresentMode`).
+
+#### `avoid_gpu_irq_cpus`
+
+Boolean, `true` by default on Linux and ignored elsewhere. Moves the frame thread off the CPUs that service the GPU's interrupts, read from `/proc/interrupts`. A GPU raises thousands of interrupts a second while frames are in flight, and a frame thread placed on the CPU that services them can run its frame work at half speed for the whole session. `false` leaves the thread wherever the scheduler puts it.
 
 #### `backend`
 
@@ -115,7 +121,8 @@ Determines how the engine synchronizes with the display (VSync behavior).
 ```json
 "renderer": {
     "present_mode": 0,
-    "backend": 0
+    "backend": 0,
+    "avoid_gpu_irq_cpus": true
 }
 ```
 

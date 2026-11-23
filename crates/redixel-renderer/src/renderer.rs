@@ -15,9 +15,10 @@ use winit::{
 };
 
 use crate::{
-    batch::{MeshBatch, SpriteBatch},
+    batch::{Batch2dBuffers, MeshBatch},
     device::GpuDevice,
     pipeline::{GlobalUniforms, ShapePipeline},
+    quad::Batch2d,
     texture::TextureRegistry,
 };
 
@@ -45,7 +46,7 @@ impl Default for RendererConfig {
 /// Commands collected during `on_render`, submitted to the GPU in one pass.
 pub struct DrawQueue {
     pub clear:    Color,
-    pub batch_2d: SpriteBatch,
+    pub batch_2d: Batch2d,
     pub batch_3d: MeshBatch,
 }
 
@@ -55,10 +56,11 @@ pub struct DrawQueue {
 /// 1. The `draw_*` methods (or `draw_queue_mut()`) fill `batch_2d` and `batch_3d`
 /// 2. `render()` flushes the depth-tested 3D batch, then the painter-ordered 2D batch over it, and presents
 pub struct Renderer {
-    device:   GpuDevice,
-    pipeline: ShapePipeline,
-    textures: TextureRegistry,
-    queue:    DrawQueue,
+    device:     GpuDevice,
+    pipeline:   ShapePipeline,
+    textures:   TextureRegistry,
+    queue:      DrawQueue,
+    buffers_2d: Batch2dBuffers,
 }
 
 impl Renderer {
@@ -70,18 +72,16 @@ impl Renderer {
         let textures: TextureRegistry = TextureRegistry::new(&device.device, &device.queue);
         let pipeline: ShapePipeline = ShapePipeline::new(&device.device, device.config.format, textures.layout());
 
-        let batch_2d: SpriteBatch = SpriteBatch::new(&device.device);
-        let batch_3d: MeshBatch = MeshBatch::new(&device.device);
-
         Ok(Self {
             device,
             pipeline,
             textures,
             queue: DrawQueue {
-                clear: Color::rgb(0.1, 0.2, 0.3),
-                batch_2d,
-                batch_3d,
+                clear:    Color::rgb(0.1, 0.2, 0.3),
+                batch_2d: Batch2d::default(),
+                batch_3d: MeshBatch::new(),
             },
+            buffers_2d: Batch2dBuffers::new(),
         })
     }
 
@@ -146,17 +146,25 @@ impl Renderer {
 
     /// Queues a filled rectangle.
     pub fn draw_rect(&mut self, position: Vec2, size: Vec2, color: Color) {
-        self.queue.batch_2d.draw_rect(position, size, color);
+        self.queue.batch_2d.push_rect(position, size, color);
     }
 
     /// Queues a textured rectangle.
     pub fn draw_sprite(&mut self, position: Vec2, size: Vec2, texture: TextureId, tint: Color) {
-        self.queue.batch_2d.draw_sprite(position, size, texture, tint);
+        self.queue.batch_2d.push_sprite(position, size, texture, tint);
     }
 
     /// Queues a filled triangle.
     pub fn draw_triangle(&mut self, p1: Vec2, p2: Vec2, p3: Vec2, color: Color) {
-        self.queue.batch_2d.draw_triangle(p1, p2, p3, color);
+        self.queue.batch_2d.push_triangle(p1, p2, p3, color);
+    }
+
+    /// Exchanges the queued 2D batch with `batch`, so a caller that filled one
+    /// hands it over without copying, and gets back an empty one that keeps its
+    /// capacity.
+    pub fn swap_batch_2d(&mut self, batch: &mut Batch2d) {
+        std::mem::swap(&mut self.queue.batch_2d, batch);
+        batch.clear();
     }
 
     /// Queues a filled triangle in 3D view space.
@@ -282,9 +290,14 @@ impl Renderer {
 
             pass.set_pipeline(&self.pipeline.pipeline_2d);
             pass.set_bind_group(0, &self.pipeline.globals_2d.bind_group, &[]);
-            self.queue
-                .batch_2d
-                .flush(&self.device.device, &self.device.queue, &mut pass, &self.textures);
+            self.buffers_2d.flush(
+                &self.device.device,
+                &self.device.queue,
+                &mut pass,
+                &self.pipeline,
+                &self.textures,
+                &mut self.queue.batch_2d,
+            );
         }
 
         profile::phase("submit");

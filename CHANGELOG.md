@@ -13,6 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Runtime:** profiling runs are configured through `REDIXEL_PROFILE*` environment variables, with no rebuild; the app writes a JSON report, prints `REDIXEL_PROFILE_DONE` to stderr and exits. See `docs/profiling.md`.
 - **Renderer:** `Renderer::adapter_info` and `Renderer::present_mode`, the mode the surface actually runs with after any fallback.
 - **Tooling:** `tools/profile-compare`, which diffs two profile reports phase by phase and says whether the second run is faster, slower or within noise.
+- **Renderer:** rectangles and sprites draw as GPU instances, 36 bytes per quad expanded into its four corners by `quad.wgsl`, instead of four vertices and six indices built on the CPU. `Batch2d` keeps quads and triangles in submission order.
+- **Runtime:** `RuntimeConfig::with_event_pump_interval` and `window.event_pump_interval_us`: frames run back to back for up to the interval (500 µs by default on desktop) before window events are dispatched, instead of one event-loop round trip per frame.
+- **Platform:** `affinity::keep_current_thread_off_gpu_irq_cpus`. On Linux the runtime moves the frame thread off the CPUs servicing GPU interrupts (`RuntimeConfig::with_gpu_irq_avoidance`, `renderer.avoid_gpu_irq_cpus`, on by default), which a frame thread could otherwise share for a whole session at half speed.
+- **Tooling:** `FPS_BENCH_QUADS` runs `fps-bench` on a single tier.
+
+### Changed
+
+- **Runtime:** 2D draw calls fill a `Batch2d` the runtime swaps into the renderer each frame; `DrawCommand` loses its `Rect`, `Sprite` and `Triangle` variants. Breaking for code matching on them.
+- **Renderer:** `SpriteBatch` is replaced by `Batch2d` (`DrawQueue::batch_2d`), `MeshBatch::new` no longer takes a device, and `Renderer::swap_batch_2d` hands over a filled batch without copying. Breaking for direct `redixel-renderer` consumers.
+- **Runtime:** `RuntimeConfig` gains public `event_pump_interval` and `avoid_gpu_irq_cpus` fields. Breaking for code that builds it with a struct literal instead of `windowed`/`headless`.
 
 ## [0.6.0]
 

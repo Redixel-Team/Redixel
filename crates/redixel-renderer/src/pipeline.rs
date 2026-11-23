@@ -10,9 +10,10 @@ use wgpu::{
     VertexStepMode,
 };
 
-use crate::device::DEPTH_FORMAT;
+use crate::{device::DEPTH_FORMAT, quad::QuadInstance};
 
 const SHADER_SRC: &str = include_str!("../shaders/shape.wgsl");
+const QUAD_SHADER_SRC: &str = include_str!("../shaders/quad.wgsl");
 
 /// A single vertex in the shape batch: 3D position + RGBA colour + texture
 /// coordinate.
@@ -69,6 +70,15 @@ pub struct GlobalUniforms {
     pub _padding:   f32,
 }
 
+/// The vertex half of one shape pipeline: which shader entry point runs, the
+/// single vertex buffer it reads, and how its vertices assemble into triangles.
+struct VertexStage<'a> {
+    shader:   &'a ShaderModule,
+    entry:    &'a str,
+    buffer:   VertexBufferLayout<'a>,
+    topology: PrimitiveTopology,
+}
+
 /// A uniform buffer paired with the bind group that exposes it.
 ///
 /// The 2D and 3D paths differ only in the matrices they carry, so both are
@@ -120,6 +130,7 @@ impl UniformBlock {
 pub struct ShapePipeline {
     pub pipeline_2d:       RenderPipeline,
     pub pipeline_3d:       RenderPipeline,
+    pub pipeline_quads:    RenderPipeline,
     pub bind_group_layout: BindGroupLayout,
     pub globals_2d:        UniformBlock,
     pub globals_3d:        UniformBlock,
@@ -140,6 +151,11 @@ impl ShapePipeline {
         let shader: ShaderModule = device.create_shader_module(ShaderModuleDescriptor {
             label:  Some("REDIXEL_SHAPE_SHADER"),
             source: ShaderSource::Wgsl(SHADER_SRC.into()),
+        });
+
+        let quad_shader: ShaderModule = device.create_shader_module(ShaderModuleDescriptor {
+            label:  Some("REDIXEL_QUAD_SHADER"),
+            source: ShaderSource::Wgsl(QUAD_SHADER_SRC.into()),
         });
 
         let bind_group_layout: BindGroupLayout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
@@ -178,25 +194,54 @@ impl ShapePipeline {
 
         let pipeline_2d: RenderPipeline = Self::create_pipeline(
             device,
-            &shader,
             &pipeline_layout,
             surface_format,
             "REDIXEL_SHAPE_PIPELINE_2D",
             Self::depth_2d(),
+            VertexStage {
+                shader:   &shader,
+                entry:    "vs_main",
+                buffer:   Vertex::layout(),
+                topology: PrimitiveTopology::TriangleList,
+            },
         );
 
         let pipeline_3d: RenderPipeline = Self::create_pipeline(
             device,
-            &shader,
             &pipeline_layout,
             surface_format,
             "REDIXEL_SHAPE_PIPELINE_3D",
             Self::depth_3d(),
+            VertexStage {
+                shader:   &shader,
+                entry:    "vs_main",
+                buffer:   Vertex::layout(),
+                topology: PrimitiveTopology::TriangleList,
+            },
+        );
+
+        let pipeline_quads: RenderPipeline = Self::create_pipeline(
+            device,
+            &pipeline_layout,
+            surface_format,
+            "REDIXEL_QUAD_PIPELINE",
+            Self::depth_2d(),
+            VertexStage {
+                shader:   &quad_shader,
+                entry:    "vs_quad",
+                buffer:   VertexBufferLayout {
+                    array_stride: std::mem::size_of::<QuadInstance>() as u64,
+                    step_mode:    VertexStepMode::Instance,
+                    attributes:   &QuadInstance::ATTRIBUTES,
+                },
+                topology: PrimitiveTopology::TriangleStrip,
+            },
         );
 
         Self {
             pipeline_2d,
             pipeline_3d,
+            pipeline_quads,
             bind_group_layout,
             globals_2d,
             globals_3d,
@@ -232,26 +277,35 @@ impl ShapePipeline {
         }
     }
 
-    /// Builds one of the two shape pipelines. They differ only in `depth`.
+    /// Builds one shape pipeline. All of them share the layout, the fragment
+    /// stage and the blend state; they differ in `depth` and in the vertex
+    /// stage `vertex` describes.
     ///
-    /// Neither culls: `draw_triangle_3d` takes its corners in whatever order
-    /// the caller supplies, so culling would silently drop triangles wound the
+    /// None culls: `draw_triangle_3d` takes its corners in whatever order the
+    /// caller supplies, so culling would silently drop triangles wound the
     /// "wrong" way.
     fn create_pipeline(
         device: &Device,
-        shader: &ShaderModule,
         layout: &PipelineLayout,
         surface_format: TextureFormat,
         label: &str,
         depth: DepthStencilState,
+        vertex: VertexStage<'_>,
     ) -> RenderPipeline {
+        let VertexStage {
+            shader,
+            entry,
+            buffer,
+            topology,
+        }: VertexStage<'_> = vertex;
+
         device.create_render_pipeline(&RenderPipelineDescriptor {
             label:          Some(label),
             layout:         Some(layout),
             vertex:         VertexState {
                 module:              shader,
-                entry_point:         Some("vs_main"),
-                buffers:             &[Some(Vertex::layout())],
+                entry_point:         Some(entry),
+                buffers:             &[Some(buffer)],
                 compilation_options: Default::default(),
             },
             fragment:       Some(FragmentState {
@@ -265,7 +319,7 @@ impl ShapePipeline {
                 compilation_options: Default::default(),
             }),
             primitive:      PrimitiveState {
-                topology: PrimitiveTopology::TriangleList,
+                topology,
                 front_face: FrontFace::Ccw,
                 polygon_mode: PolygonMode::Fill,
                 ..Default::default()

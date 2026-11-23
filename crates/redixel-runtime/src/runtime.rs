@@ -1,11 +1,12 @@
 #[cfg(not(target_arch = "wasm32"))]
-use std::time::Duration;
+use std::time::Instant;
 use std::{
     num::ParseFloatError,
     sync::{
         Arc, RwLockWriteGuard, mpsc,
         mpsc::{Receiver, Sender},
     },
+    time::Duration,
 };
 
 #[cfg(not(feature = "audio"))]
@@ -16,12 +17,14 @@ use redixel_net::NetConfig;
 use redixel_platform::{WindowManager, window::WindowConfig};
 use redixel_profile as profile;
 use redixel_renderer::{Renderer, RendererConfig};
-use wgpu::AdapterInfo;
+#[cfg(target_arch = "wasm32")]
+use web_time::Instant;
+use wgpu_types::AdapterInfo;
 use winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
     event::WindowEvent,
-    event_loop::{ActiveEventLoop, EventLoopProxy},
+    event_loop::{ActiveEventLoop, ControlFlow, EventLoopProxy},
     window::{Window, WindowId},
 };
 
@@ -34,17 +37,43 @@ use crate::{
 
 pub const DEFAULT_TICKRATE: f64 = 60.0;
 
+/// [`RuntimeConfig::event_pump_interval`] unless configured: 500 µs on
+/// desktop, one event-loop round trip per frame on mobile and the web.
+pub const DEFAULT_EVENT_PUMP_INTERVAL: Duration =
+    if cfg!(any(target_os = "android", target_os = "ios", target_arch = "wasm32")) {
+        Duration::ZERO
+    } else {
+        Duration::from_micros(500)
+    };
+
+/// Whether frames are driven from `about_to_wait` under `ControlFlow::Poll`,
+/// several per event-loop iteration, rather than one per `request_redraw`.
+/// Never on the web, where the browser schedules frames.
+fn polls(config: &RuntimeConfig) -> bool {
+    !cfg!(target_arch = "wasm32") && !config.event_pump_interval.is_zero()
+}
+
+/// [`RuntimeConfig::avoid_gpu_irq_cpus`] unless configured: on wherever it
+/// does anything, which is Linux.
+pub const DEFAULT_AVOID_GPU_IRQ_CPUS: bool = cfg!(target_os = "linux");
+
 #[derive(Clone)]
 pub struct RuntimeConfig {
-    pub window:     WindowConfig,
-    pub renderer:   RendererConfig,
-    pub audio:      AudioConfig,
-    pub target_fps: f64,
+    pub window:              WindowConfig,
+    pub renderer:            RendererConfig,
+    pub audio:               AudioConfig,
+    pub target_fps:          f64,
     /// Fixed-update rate in Hz driving `on_fixed_update` (physics/networking).
-    pub tickrate:   f64,
+    pub tickrate:            f64,
+    /// How long frames may run back to back before window events are dispatched
+    /// again; see [`with_event_pump_interval`](Self::with_event_pump_interval).
+    pub event_pump_interval: Duration,
+    /// Whether the frame thread is moved off the CPUs that service GPU
+    /// interrupts; see [`with_gpu_irq_avoidance`](Self::with_gpu_irq_avoidance).
+    pub avoid_gpu_irq_cpus:  bool,
     /// Networking configuration. `None` installs a zero-cost no-op network.
     #[cfg(feature = "net")]
-    pub net:        Option<NetConfig>,
+    pub net:                 Option<NetConfig>,
 }
 
 impl RuntimeConfig {
@@ -63,9 +92,33 @@ impl RuntimeConfig {
             audio: AudioConfig::default(),
             target_fps,
             tickrate,
+            event_pump_interval: DEFAULT_EVENT_PUMP_INTERVAL,
+            avoid_gpu_irq_cpus: DEFAULT_AVOID_GPU_IRQ_CPUS,
             #[cfg(feature = "net")]
             net: None,
         }
+    }
+
+    /// Lets frames run back to back for up to `interval` before the event loop
+    /// dispatches window events again, instead of returning to it after every
+    /// frame. Input is then at most `interval` late, and below `1 / interval`
+    /// frames per second nothing changes.
+    ///
+    /// On by default on desktop (500 µs), where an event-loop round trip per
+    /// frame costs a dozen system calls; zero, one round trip per frame, on
+    /// mobile and the web. Ignored on the web, where the browser drives frames.
+    pub fn with_event_pump_interval(mut self, interval: Duration) -> Self {
+        self.event_pump_interval = interval;
+        self
+    }
+
+    /// Moves the frame thread off the CPUs that service GPU interrupts, once,
+    /// when the renderer is up (see [`redixel_platform::affinity`]).
+    ///
+    /// On by default on Linux, the only platform where it does anything.
+    pub fn with_gpu_irq_avoidance(mut self, enabled: bool) -> Self {
+        self.avoid_gpu_irq_cpus = enabled;
+        self
     }
 
     /// A configuration for a **headless server**: no window, no GPU, just a
@@ -92,6 +145,8 @@ impl RuntimeConfig {
             },
             renderer: RendererConfig::default(),
             audio: AudioConfig::default(),
+            event_pump_interval: Duration::ZERO,
+            avoid_gpu_irq_cpus: false,
         }
     }
 
@@ -270,6 +325,13 @@ impl<G: Game> Runtime<G> {
 
     fn transition_to_running(&mut self, mut renderer: Renderer, window: WindowManager) -> Result<(), RedixelError> {
         window.request_redraw();
+
+        if self.config.avoid_gpu_irq_cpus {
+            match redixel_platform::affinity::keep_current_thread_off_gpu_irq_cpus() {
+                Some(cpus) => log::info!("Frame thread kept off GPU interrupt CPUs; running on {cpus:?}."),
+                None => log::debug!("GPU interrupt CPU avoidance left the frame thread's affinity unchanged."),
+            }
+        }
 
         let mut time: TimeManager = TimeManager::new();
         time.set_target_fps(self.config.target_fps);
@@ -452,24 +514,11 @@ impl<G: Game> Runtime<G> {
         Self::upload_sounds(state.audio.as_mut(), &mut state.sim.context);
 
         profile::phase("dispatch");
+        state.renderer.swap_batch_2d(&mut state.sim.context.batch_2d);
         for cmd in state.sim.context.drain_commands() {
             match cmd {
                 DrawCommand::ClearColor(c) => {
                     state.renderer.set_clear_color(c);
-                }
-                DrawCommand::Rect { position, size, color } => {
-                    state.renderer.draw_rect(position, size, color);
-                }
-                DrawCommand::Sprite {
-                    position,
-                    size,
-                    texture,
-                    tint,
-                } => {
-                    state.renderer.draw_sprite(position, size, texture, tint);
-                }
-                DrawCommand::Triangle { p1, p2, p3, color } => {
-                    state.renderer.draw_triangle(p1, p2, p3, color);
                 }
                 DrawCommand::Triangle3d { p1, p2, p3, color } => {
                     state.renderer.draw_triangle_3d(p1, p2, p3, color);
@@ -529,7 +578,9 @@ impl<G: Game> Runtime<G> {
             .time
             .every_seconds(1.0, |fps: f64| state.window.set_title_stats(fps, state.sim.context.rtt_ms()));
 
-        state.window.request_redraw();
+        if !polls(&self.config) {
+            state.window.request_redraw();
+        }
 
         if profile::end_frame() {
             if let Err(e) = profile::finish(profile_meta(&self.config, &state.renderer)) {
@@ -685,6 +736,26 @@ impl<G: Game> ApplicationHandler for Runtime<G> {
     fn window_event(&mut self, event_loop: &dyn ActiveEventLoop, _id: WindowId, event: WindowEvent) {
         self.on_window_event(event_loop, event);
     }
+
+    /// When [`polls`], renders frames back to back until the configured
+    /// interval has passed, then lets the event loop dispatch window events
+    /// again. A frame longer than the interval still gets one dispatch per
+    /// frame.
+    fn about_to_wait(&mut self, event_loop: &dyn ActiveEventLoop) {
+        if !polls(&self.config) {
+            return;
+        }
+
+        event_loop.set_control_flow(ControlFlow::Poll);
+        let started: Instant = Instant::now();
+
+        while !self.is_suspended && !event_loop.exiting() && matches!(self.state, AppState::Running(..)) {
+            self.run_frame(event_loop);
+            if started.elapsed() >= self.config.event_pump_interval {
+                break;
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -712,10 +783,7 @@ mod tests {
                 fullscreen: false,
                 title:      String::from("TEST_TITLE"),
             },
-            RendererConfig {
-                backends:     wgpu::Backends::all(),
-                present_mode: wgpu::PresentMode::AutoVsync,
-            },
+            RendererConfig::default(),
             60.0,
             60.0,
         )
@@ -755,15 +823,17 @@ mod tests {
     }
 
     #[test]
-    fn context_draw_commands_accumulate() {
+    fn context_2d_draws_fill_the_batch_not_the_queue() {
         let mut ctx: Context<()> = Context::new();
         ctx.draw_rect(Vec2::new(0.0, 0.0), Vec2::new(100.0, 50.0), Color::RED);
         ctx.draw_rect(Vec2::new(10.0, 10.0), Vec2::new(20.0, 20.0), Color::BLUE);
-        assert_eq!(ctx.commands.len(), 2);
+        ctx.draw_triangle(Vec2::ZERO, Vec2::X, Vec2::Y, Color::WHITE);
 
-        let drained: Vec<DrawCommand> = ctx.drain_commands().collect();
-        assert_eq!(drained.len(), 2);
         assert!(ctx.commands.is_empty());
+        assert_eq!(ctx.batch_2d.quad_count(), 2);
+
+        ctx.reset_frame();
+        assert!(ctx.batch_2d.is_empty(), "a headless tick must not let the 2D batch grow");
     }
 
     #[test]
@@ -872,15 +942,11 @@ mod tests {
         let id: TextureId = ctx.load_texture(b"png bytes");
         ctx.draw_sprite(Vec2::ZERO, Vec2::ONE, id);
 
-        let drained: Vec<DrawCommand> = ctx.drain_commands().collect();
-
-        match drained.as_slice() {
-            [DrawCommand::Sprite { texture, tint, .. }] => {
-                assert_eq!(*texture, id);
-                assert_eq!(*tint, Color::WHITE, "the default tint leaves the image untouched");
-            }
-            other => panic!("expected a single sprite command, got {other:?}"),
-        }
+        assert_eq!(
+            ctx.batch_2d.quads()[0].color,
+            [255, 255, 255, 255],
+            "the default tint leaves the image untouched"
+        );
     }
 
     #[test]

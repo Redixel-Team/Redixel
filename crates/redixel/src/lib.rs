@@ -1,11 +1,14 @@
 //! Public façade of the Redixel 2D & 3D game engine: the `prelude`, the `entry_point!` macro and the per-platform `run_*` functions.
 
-use std::sync::RwLockReadGuard;
+use std::{sync::RwLockReadGuard, time::Duration};
 
 use redixel_core::{AudioConfig, Game, RedixelError};
 use redixel_platform::window::WindowConfig;
-use redixel_renderer::RendererConfig;
-use redixel_runtime::{DEFAULT_TICKRATE, EngineSettings, RawBackend, RawPresentMode, Runtime, RuntimeConfig};
+use redixel_renderer::{DEFAULT_PRESENT_SPIN, RendererConfig};
+use redixel_runtime::{
+    DEFAULT_AVOID_GPU_IRQ_CPUS, DEFAULT_EVENT_PUMP_INTERVAL, DEFAULT_TICKRATE, EngineSettings, RawBackend,
+    RawPresentMode, Runtime, RuntimeConfig,
+};
 use winit::event_loop::{ControlFlow, EventLoop};
 #[cfg(target_os = "android")]
 use winit::platform::android::activity::AndroidApp;
@@ -46,6 +49,7 @@ pub fn build_config() -> RuntimeConfig {
         RendererConfig {
             backends:     settings.get_path("renderer.backend", RawBackend(0)).into(),
             present_mode: settings.get_path("renderer.present_mode", RawPresentMode(0)).into(),
+            present_spin: settings.get_path("renderer.present_spin", DEFAULT_PRESENT_SPIN),
         },
         settings.get_path("window.target_fps", 60.0),
         settings.get_path("engine.tickrate", DEFAULT_TICKRATE),
@@ -55,6 +59,10 @@ pub fn build_config() -> RuntimeConfig {
         sfx_volume:    settings.get_path("audio.sfx_volume", 1.0),
         music_volume:  settings.get_path("audio.music_volume", 1.0),
     })
+    .with_event_pump_interval(Duration::from_micros(
+        settings.get_path("window.event_pump_interval_us", DEFAULT_EVENT_PUMP_INTERVAL.as_micros() as u64),
+    ))
+    .with_gpu_irq_avoidance(settings.get_path("renderer.avoid_gpu_irq_cpus", DEFAULT_AVOID_GPU_IRQ_CPUS))
 }
 
 /// Runs `game` as a single-player desktop app, loading [`RuntimeConfig`] from

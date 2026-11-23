@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
 use redixel_core::{RedixelError, TextureId};
-use redixel_math::{Color, Mat4, Vec2, Vec3};
+use redixel_math::{Color, Vec2, Vec3};
 use redixel_profile as profile;
 use wgpu::{
-    AdapterInfo, Backends, CommandEncoder, CommandEncoderDescriptor,
+    AdapterInfo, CommandEncoder, CommandEncoderDescriptor,
     CurrentSurfaceTexture::{Lost, Occluded, Outdated, Suboptimal, Success, Timeout, Validation},
     LoadOp, Operations, PresentMode, RenderPass, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
     RenderPassDescriptor, StoreOp, Surface, SurfaceTexture, TextureView, TextureViewDescriptor,
@@ -14,38 +14,22 @@ use winit::{
     window::{self, Window},
 };
 
-use crate::{
-    batch::{MeshBatch, SpriteBatch},
+use super::{
+    batch::{Batch2dBuffers, MeshBatch},
     device::GpuDevice,
-    pipeline::{GlobalUniforms, ShapePipeline},
+    pipeline::ShapePipeline,
     texture::TextureRegistry,
 };
-
-const CAMERA_FOV_Y_DEGREES: f32 = 60.0;
-const CAMERA_NEAR: f32 = 0.1;
-const CAMERA_FAR: f32 = 100.0;
-
-/// All renderer settings resolved from `config.json` by `redixel-runtime`
-/// and injected at construction time. The renderer never touches the config system.
-#[derive(Debug, Clone)]
-pub struct RendererConfig {
-    pub backends:     Backends,
-    pub present_mode: PresentMode,
-}
-
-impl Default for RendererConfig {
-    fn default() -> Self {
-        Self {
-            backends:     Backends::all(),
-            present_mode: PresentMode::AutoVsync,
-        }
-    }
-}
+use crate::{
+    config::{RendererConfig, frame_uniforms},
+    quad::Batch2d,
+    shader::GlobalUniforms,
+};
 
 /// Commands collected during `on_render`, submitted to the GPU in one pass.
 pub struct DrawQueue {
     pub clear:    Color,
-    pub batch_2d: SpriteBatch,
+    pub batch_2d: Batch2d,
     pub batch_3d: MeshBatch,
 }
 
@@ -55,10 +39,11 @@ pub struct DrawQueue {
 /// 1. The `draw_*` methods (or `draw_queue_mut()`) fill `batch_2d` and `batch_3d`
 /// 2. `render()` flushes the depth-tested 3D batch, then the painter-ordered 2D batch over it, and presents
 pub struct Renderer {
-    device:   GpuDevice,
-    pipeline: ShapePipeline,
-    textures: TextureRegistry,
-    queue:    DrawQueue,
+    device:     GpuDevice,
+    pipeline:   ShapePipeline,
+    textures:   TextureRegistry,
+    queue:      DrawQueue,
+    buffers_2d: Batch2dBuffers,
 }
 
 impl Renderer {
@@ -70,18 +55,16 @@ impl Renderer {
         let textures: TextureRegistry = TextureRegistry::new(&device.device, &device.queue);
         let pipeline: ShapePipeline = ShapePipeline::new(&device.device, device.config.format, textures.layout());
 
-        let batch_2d: SpriteBatch = SpriteBatch::new(&device.device);
-        let batch_3d: MeshBatch = MeshBatch::new(&device.device);
-
         Ok(Self {
             device,
             pipeline,
             textures,
             queue: DrawQueue {
-                clear: Color::rgb(0.1, 0.2, 0.3),
-                batch_2d,
-                batch_3d,
+                clear:    Color::rgb(0.1, 0.2, 0.3),
+                batch_2d: Batch2d::default(),
+                batch_3d: MeshBatch::new(),
             },
+            buffers_2d: Batch2dBuffers::new(),
         })
     }
 
@@ -146,17 +129,25 @@ impl Renderer {
 
     /// Queues a filled rectangle.
     pub fn draw_rect(&mut self, position: Vec2, size: Vec2, color: Color) {
-        self.queue.batch_2d.draw_rect(position, size, color);
+        self.queue.batch_2d.push_rect(position, size, color);
     }
 
     /// Queues a textured rectangle.
     pub fn draw_sprite(&mut self, position: Vec2, size: Vec2, texture: TextureId, tint: Color) {
-        self.queue.batch_2d.draw_sprite(position, size, texture, tint);
+        self.queue.batch_2d.push_sprite(position, size, texture, tint);
     }
 
     /// Queues a filled triangle.
     pub fn draw_triangle(&mut self, p1: Vec2, p2: Vec2, p3: Vec2, color: Color) {
-        self.queue.batch_2d.draw_triangle(p1, p2, p3, color);
+        self.queue.batch_2d.push_triangle(p1, p2, p3, color);
+    }
+
+    /// Exchanges the queued 2D batch with `batch`, so a caller that filled one
+    /// hands it over without copying, and gets back an empty one that keeps its
+    /// capacity.
+    pub fn swap_batch_2d(&mut self, batch: &mut Batch2d) {
+        std::mem::swap(&mut self.queue.batch_2d, batch);
+        batch.clear();
     }
 
     /// Queues a filled triangle in 3D view space.
@@ -171,48 +162,16 @@ impl Renderer {
             .draw_triangle_3d_textured(points, uvs, texture, tint);
     }
 
-    /// Uploads this frame's [`GlobalUniforms`] to both uniform blocks.
-    ///
-    /// The matrices are rebuilt from the surface configuration every frame,
-    /// which is what keeps geometry proportional across a resize without the
-    /// resize path having to re-upload anything. `resolution` carries those
-    /// same dimensions to the shader, where the projection is no help.
-    ///
-    /// `view` is the identity in both blocks: the engine has no camera
-    /// transform yet, and 3D draw calls arrive already in view space.
-    ///
-    /// `time` is seconds since startup, narrowed to `f32` only here — WGSL
-    /// uniforms have no `f64`. Its resolution decays to about a millisecond
-    /// after a couple of hours of uptime; an effect needing better than that
-    /// wants the time reduced modulo a multiple of `TAU` by whoever calls
-    /// [`render`](Self::render), not a wider type.
+    /// Uploads this frame's [`GlobalUniforms`] (see [`frame_uniforms`]) to
+    /// both uniform blocks.
     ///
     /// Private because [`render`](Self::render) always calls it with that
     /// frame's time: an upload from anywhere else would be overwritten before
     /// it could reach a draw call.
     fn update_uniforms(&self, time: f32) {
         let (w, h): (u32, u32) = self.surface_size();
-        let resolution: [f32; 2] = [w as f32, h as f32];
-
-        let ortho: Mat4 = Mat4::orthographic(0.0, w as f32, h as f32, 0.0, -1.0, 1.0);
-        let uniforms_2d: GlobalUniforms = GlobalUniforms {
-            view: Mat4::IDENTITY.cols,
-            projection: ortho.cols,
-            resolution,
-            time,
-            _padding: 0.0,
-        };
+        let (uniforms_2d, uniforms_3d): (GlobalUniforms, GlobalUniforms) = frame_uniforms(w, h, time);
         self.pipeline.globals_2d.update(&self.device.queue, &uniforms_2d);
-
-        let aspect: f32 = w as f32 / h as f32;
-        let perspective: Mat4 = Mat4::perspective(CAMERA_FOV_Y_DEGREES.to_radians(), aspect, CAMERA_NEAR, CAMERA_FAR);
-        let uniforms_3d: GlobalUniforms = GlobalUniforms {
-            view: Mat4::IDENTITY.cols,
-            projection: perspective.cols,
-            resolution,
-            time,
-            _padding: 0.0,
-        };
         self.pipeline.globals_3d.update(&self.device.queue, &uniforms_3d);
     }
 
@@ -282,9 +241,14 @@ impl Renderer {
 
             pass.set_pipeline(&self.pipeline.pipeline_2d);
             pass.set_bind_group(0, &self.pipeline.globals_2d.bind_group, &[]);
-            self.queue
-                .batch_2d
-                .flush(&self.device.device, &self.device.queue, &mut pass, &self.textures);
+            self.buffers_2d.flush(
+                &self.device.device,
+                &self.device.queue,
+                &mut pass,
+                &self.pipeline,
+                &self.textures,
+                &mut self.queue.batch_2d,
+            );
         }
 
         profile::phase("submit");

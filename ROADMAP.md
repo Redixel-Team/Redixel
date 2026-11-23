@@ -33,14 +33,14 @@ Phases are grouped by area, not a strict sequence: work lands where it is needed
 - [x] **Texture Support:** PNG decoding via the `image` crate, uploaded to `Rgba8UnormSrgb` textures sampled with `FilterMode::Nearest`. Alpha is blended, and a failed load draws a checkerboard instead of failing ([#43]).
 - [ ] **Mipmaps:** Generate a mip chain per texture. `FilterMode::Nearest` with no mips keeps pixel art crisp at native scale and above, but a sprite minified below its native size aliases and shimmers as it moves.
 - [ ] **Materials & Custom Shaders:** Let games supply their own shaders and materials instead of the single shared `shape.wgsl` ([#84]).
-- [ ] **Renderer Backend:** Migrate the renderer to `wgpu-hal` ([#88]).
+- [x] **Renderer Backend:** Native targets render directly on `wgpu-hal` (Vulkan, Metal, DX12, GLES); the web keeps `wgpu` ([#88]).
 
 ## **Phase 3 — The 2D Renderer**
 
 **Goal:** Efficiently draw thousands of sprites (The "Draw Call" problem).
 
 - [ ] **Sprite Struct:** Define the data structure for visual objects (Pos, Size, Rotation, UVs). _(partial: `draw_sprite` takes position, size, texture, and tint — rotation and UV regions for sprite sheets/atlases are missing)_
-- [x] **Batch Renderer:** `SpriteBatch` groups a whole frame's sprites and shapes into one vertex and index buffer, issuing one draw call per run of consecutive draws sharing a texture ([#35]).
+- [x] **Batch Renderer:** `Batch2d` groups a whole frame's sprites and shapes, drawing rectangles and sprites as GPU instances and issuing one draw call per run of consecutive draws sharing a texture ([#35]).
 - [ ] **Text & Font Renderer:** Integrate `ab_glyph` to generate font atlases and draw dynamic text via the Batch Renderer ([#72]).
 - [ ] **Particle System:** Implement a lightweight engine-level structure to process and render thousands of ephemeral quads efficiently. The `shooter` and `shooter_mp` examples each carry their own copy today.
 - [ ] **Primitive Rendering:** Implement logic to draw debug shapes (lines, wireframe rectangles) for physics visualization.

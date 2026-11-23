@@ -13,6 +13,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Runtime:** profiling runs are configured through `REDIXEL_PROFILE*` environment variables, with no rebuild; the app writes a JSON report, prints `REDIXEL_PROFILE_DONE` to stderr and exits. See `docs/profiling.md`.
 - **Renderer:** `Renderer::adapter_info` and `Renderer::present_mode`, the mode the surface actually runs with after any fallback.
 - **Tooling:** `tools/profile-compare`, which diffs two profile reports phase by phase and says whether the second run is faster, slower or within noise.
+- **Renderer:** rectangles and sprites draw as GPU instances, 36 bytes per quad expanded into its four corners by `quad.wgsl`, instead of four vertices and six indices built on the CPU. `Batch2d` keeps quads and triangles in submission order.
+- **Runtime:** `RuntimeConfig::with_event_pump_interval` and `window.event_pump_interval_us`: frames run back to back for up to the interval (500 µs by default on desktop) before window events are dispatched, instead of one event-loop round trip per frame.
+- **Platform:** `affinity::keep_current_thread_off_gpu_irq_cpus`. On Linux the runtime moves the frame thread off the CPUs servicing GPU interrupts (`RuntimeConfig::with_gpu_irq_avoidance`, `renderer.avoid_gpu_irq_cpus`, on by default), which a frame thread could otherwise share for a whole session at half speed.
+- **Tooling:** `FPS_BENCH_QUADS` runs `fps-bench` on a single tier.
+- **Renderer:** native targets render directly on `wgpu-hal` instead of `wgpu`, trying Vulkan, Metal, DX12 and GLES in that order (filtered by `renderer.backend`) and falling back to the next when one fails to start. Frames record ahead of the previous present, which runs on a dedicated `redixel-present` thread; Vulkan streams per-frame geometry from write-combined system RAM and reuses swapchain views. The web keeps `wgpu` (WebGPU, WebGL2).
+- **Renderer:** `RendererConfig::present_spin` and `renderer.present_spin`: the frame thread busy-waits for at most 2 ms for the previous present instead of sleeping (on by default on desktop, off on Android and iOS).
+
+### Changed
+
+- **Runtime:** 2D draw calls fill a `Batch2d` the runtime swaps into the renderer each frame; `DrawCommand` loses its `Rect`, `Sprite` and `Triangle` variants. Breaking for code matching on them.
+- **Renderer:** `SpriteBatch` is replaced by `Batch2d` (`DrawQueue::batch_2d`), `MeshBatch::new` no longer takes a device, and `Renderer::swap_batch_2d` hands over a filled batch without copying. Breaking for direct `redixel-renderer` consumers.
+- **Runtime:** `RuntimeConfig` gains public `event_pump_interval` and `avoid_gpu_irq_cpus` fields. Breaking for code that builds it with a struct literal instead of `windowed`/`headless`.
+- **Renderer:** the crate's modules are private; everything public is re-exported at the root under the same names (`redixel_renderer::Vertex` rather than `redixel_renderer::pipeline::Vertex`). The CPU-side types (`Vertex`, `GlobalUniforms`, `Batch2d`, `QuadInstance`, `RendererConfig`) no longer depend on `wgpu`, only on `wgpu-types`.
+- **Runtime, Math, Tooling:** `Backends`, `PresentMode`, `AdapterInfo` and `Color` come from `wgpu-types`, the crate `wgpu` re-exports them from, so the types are unchanged. `redixel-runtime` and `fps-bench` no longer depend on `wgpu`, and `redixel-math`'s `wgpu` feature pulls in only `wgpu-types`.
+- **Core:** `RedixelError::Gpu`, for failures reported as text by a graphics backend.
+- **Renderer:** `DrawQueue`, `MeshBatch`, `ShapePipeline`, `TextureRegistry`, `UniformBlock` and `Renderer::draw_queue_mut` exist only on the web, where the renderer is still built on `wgpu`. `RendererConfig` gains a public `present_spin` field. Breaking for direct `redixel-renderer` consumers.
+- **Tooling:** `fps-bench` measures each round for 2 seconds instead of 300 frames, which at thousands of FPS spanned a couple of display refreshes and swung with any compositor stall. It also reports the p99 frame time and the 1% low (`median_p99_frame_ms`, `median_low_1pct_fps`), and allocations per frame (`allocs_per_frame`, `bytes_per_frame`) instead of per window; `measure_frames` becomes `measure_ms`.
+- **Core:** native builds no longer depend on `wgpu`; the renderer enables `redixel-core`'s `wgpu` feature, and with it the `wgpu` error variants, only on the web.
+
+### Fixed
+
+- **Runtime:** the FPS in the window title counts every frame of the last second, instead of averaging the last 60 frames, which at thousands of FPS spanned a few milliseconds and swung with any single stall.
+- **Renderer:** the native present thread starts from the frame thread, so it inherits the frame thread's GPU interrupt avoidance instead of running on any CPU.
+- **Renderer:** `wgpu-hal` 30.0.2, whose Vulkan swapchain no longer passes an unreset fence to every image acquire off Windows, which the validation layers reported on every frame.
 
 ## [0.6.0]
 

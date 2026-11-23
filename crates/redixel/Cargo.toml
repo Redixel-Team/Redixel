@@ -11,11 +11,10 @@ repository.workspace = true
 net = ["dep:redixel-net", "redixel-runtime/net"]
 audio = ["redixel-runtime/audio"]
 profiling = ["redixel-runtime/profiling"]
-hal = ["redixel-runtime/hal"]
 
 [dependencies]
 # Internal crates
-redixel-core = { workspace = true, features = ["wgpu"] }
+redixel-core = { workspace = true }
 redixel-math = { workspace = true, features = ["wgpu"] }
 redixel-platform = { workspace = true }
 redixel-renderer = { workspace = true }
@@ -34,6 +33,7 @@ winit = { workspace = true, features = ["android-native-activity"] }
 android_logger = { workspace = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+redixel-core = { workspace = true, features = ["wgpu"] }
 console_error_panic_hook = { workspace = true }
 console_log = { workspace = true }
 wasm-bindgen = { workspace = true }

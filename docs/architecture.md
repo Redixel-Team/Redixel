@@ -19,12 +19,12 @@ The "Brain" of the engine. It implements the `winit::ApplicationHandler` trait.
 
 ## 3\. Graphics Layer (`redixel-renderer`)
 
-Abstracts the GPU hardware via WGPU.
+Abstracts the GPU hardware. Natively it is built directly on `wgpu-hal`, trying Vulkan, Metal, DX12 and GLES in that order (filtered by `renderer.backend`); on the web it runs on `wgpu`, over WebGPU or WebGL2.
 
-- **Renderer:** Encapsulates the WGPU Instance, Surface, Device, and Queue, with two render pipelines sharing one shader: a depth-tested 3D pipeline (`Depth32Float`) and a painter-ordered 2D pipeline drawn over it.
-- **Batching:** `SpriteBatch` (2D) and `MeshBatch` (3D) gather a whole frame's geometry into one vertex and index buffer, issuing one draw call per run of consecutive draws that share a texture.
-- **Uniforms & Textures:** `GlobalUniforms` carries the `view`/`projection` matrices, resolution, and time to the shaders; `TextureRegistry` owns the uploaded PNG textures.
-- **Capability:** Manages the swapchain, render passes, clear colors, and command encoding.
+- **Shared CPU side:** `Batch2d` keeps rectangles and sprites as 36-byte GPU instances and triangles as indexed vertices, in submission order; 3D triangles accumulate in an indexed geometry queue. Each run of consecutive draws sharing a texture is one draw call. `GlobalUniforms` carries the `view`/`projection` matrices, resolution, and time to the shaders. None of this depends on a GPU API.
+- **Pipelines:** a depth-tested 3D pipeline (`Depth32Float`), and painter-ordered 2D triangle and instanced-quad pipelines drawn over it.
+- **Native frame loop:** two frames in flight on one monotonic fence; per-frame streaming buffers (write-combined system RAM on Vulkan); uploads and encoding start before the previous present is joined; presents run on a dedicated `redixel-present` thread; swapchain views are cached per image on Vulkan.
+- **Textures:** PNGs decode to `Rgba8UnormSrgb` and upload synchronously; untextured geometry samples a white pixel, and a failed load draws a checkerboard.
 
 ## 4\. Platform Layer (`redixel-platform`)
 
@@ -50,7 +50,7 @@ Implements the `AudioManager` trait defined in `redixel-core`.
 The structural foundation of the engine framework.
 
 - **Responsibility:** Defines the main lifecycles (`Game` trait), the shared execution context (`GameContext`), the input action bindings, the `NetworkManager` and `AudioManager` traits, texture and sound handles (`TextureId`, `SoundId`), and the centralized error system (`RedixelError`). It also hosts the opt-in frame profiler (`profile`, behind the `profiling` feature), which the runtime and renderer mark phases through without depending on each other; see [Frame Profiling](./profiling.md).
-- **Dependencies:** Relies on `redixel-math` for type definitions, and on `winit` only for its input types (`KeyCode`, `MouseButton`) and window errors. It knows nothing of the runtime or the renderer: the `wgpu` error variants sit behind an optional `wgpu` feature.
+- **Dependencies:** Relies on `redixel-math` for type definitions, and on `winit` only for its input types (`KeyCode`, `MouseButton`) and window errors. It knows nothing of the runtime or the renderer: the `wgpu` error variants sit behind an optional `wgpu` feature, enabled only by the web renderer.
 
 ## 8\. Mathematics Layer (`redixel-math`)
 
@@ -69,7 +69,7 @@ redixel/
 │   ├── redixel-core/           # Game/GameContext traits, input, errors, net trait
 │   ├── redixel-math/           # Linear algebra (Vec2, Vec3, Mat4, Color)
 │   ├── redixel-platform/       # Winit: window, input, web-sys DOM injection
-│   ├── redixel-renderer/       # Wgpu: GPU device, 2D/3D pipelines, batches, textures
+│   ├── redixel-renderer/       # wgpu-hal (native) / wgpu (web): pipelines, batches, textures
 │   ├── redixel-runtime/        # Loop, AppState, TimeManager, Settings
 │   ├── redixel-net/            # NetworkManager transports (WebTransport, loopback)
 │   ├── redixel-audio/          # AudioManager backends (cpal+symphonia, Web Audio API)

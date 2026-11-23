@@ -82,7 +82,7 @@ Settings controlling the application window dimensions and behavior.
 
 Technical settings for the graphics backend.
 
-**Note:** The values in this section are **integer mappings** that correspond directly to the underlying graphics library's enums (e.g., `wgpu::Backends` and `wgpu::PresentMode`).
+**Note:** The values in this section are **integer mappings** that correspond directly to the underlying graphics library's enums (e.g., `wgpu_types::Backends` and `wgpu_types::PresentMode`).
 
 #### `avoid_gpu_irq_cpus`
 
@@ -90,7 +90,7 @@ Boolean, `true` by default on Linux and ignored elsewhere. Moves the frame threa
 
 #### `backend`
 
-Determines which Graphics API (driver) the engine uses to render.
+Determines which Graphics API (driver) the engine uses to render. Natively the engine tries Vulkan, Metal, DX12 and OpenGL in that order, skipping any this value excludes or the platform lacks, and falls back to the next when one fails to start.
 
 | Value | Backend API    | Description                                                                |
 | :---- | :------------- | :------------------------------------------------------------------------- |
@@ -116,13 +116,18 @@ Determines how the engine synchronizes with the display (VSync behavior).
 | **4** | **Immediate**   | **(No VSync)**. Images are presented immediately. Lowest latency, but screen tearing will occur.                                    |
 | **5** | **Mailbox**     | **(Fast VSync)**. The system waits for VSync but constantly replaces the queued image with the newest one. Low latency, no tearing. |
 
+#### `present_spin`
+
+Boolean, `true` by default on desktop and `false` on Android and iOS. Native renderers present each frame on a dedicated thread; with this on, the frame thread busy-waits for at most 2 ms for the previous present instead of sleeping, which saves the wake-up latency at the cost of a busy core while waiting. The web build ignores it.
+
 **Example:**
 
 ```json
 "renderer": {
     "present_mode": 0,
     "backend": 0,
-    "avoid_gpu_irq_cpus": true
+    "avoid_gpu_irq_cpus": true,
+    "present_spin": true
 }
 ```
 

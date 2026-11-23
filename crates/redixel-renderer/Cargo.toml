@@ -1,49 +1,43 @@
 [package]
 name = "redixel-renderer"
-description = "WGPU-backed renderer for the Redixel engine."
+description = "Renderer for the Redixel engine: wgpu-hal natively, wgpu on the web."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
 
-[features]
-# The native renderer built directly on `wgpu-hal`: Vulkan, DX12 and GLES, or
-# Metal on Apple platforms. Temporary: once every native backend is ported it
-# becomes the only native renderer.
-hal = ["dep:wgpu-hal", "dep:naga", "dep:ash", "dep:raw-window-handle"]
-
 [dependencies]
 # Internal crates
-redixel-core = { workspace = true, features = ["wgpu"] }
+redixel-core = { workspace = true }
 redixel-math = { workspace = true, features = ["wgpu"] }
 redixel-profile = { workspace = true }
 
 # External crates
 log = { workspace = true }
-wgpu = { workspace = true }
 wgpu-types = { workspace = true }
 winit = { workspace = true }
 bytemuck = { workspace = true, features = ["derive"] }
 image = { workspace = true, features = ["png"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+redixel-core = { workspace = true, features = ["wgpu"] }
 wgpu = { workspace = true, features = ["webgl"] }
 js-sys = { workspace = true }
 wasm-bindgen = { workspace = true }
 wasm-bindgen-futures = { workspace = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-naga = { workspace = true, features = ["wgsl-in"], optional = true }
-raw-window-handle = { workspace = true, optional = true }
+naga = { workspace = true, features = ["wgsl-in"] }
+raw-window-handle = { workspace = true }
 
 [target.'cfg(any(target_os = "linux", target_os = "android"))'.dependencies]
-wgpu-hal = { workspace = true, features = ["vulkan", "gles"], optional = true }
-ash = { workspace = true, optional = true }
+wgpu-hal = { workspace = true, features = ["vulkan", "gles"] }
+ash = { workspace = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]
-wgpu-hal = { workspace = true, features = ["vulkan", "dx12", "gles"], optional = true }
-ash = { workspace = true, optional = true }
+wgpu-hal = { workspace = true, features = ["vulkan", "dx12", "gles"] }
+ash = { workspace = true }
 
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
-wgpu-hal = { workspace = true, features = ["metal"], optional = true }
+wgpu-hal = { workspace = true, features = ["metal"] }

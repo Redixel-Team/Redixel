@@ -9,11 +9,14 @@
     "width": 1280,
     "height": 720,
     "fullscreen": false,
-    "target_fps": 60.0
+    "target_fps": 60.0,
+    "event_pump_interval_us": 500
   },
   "renderer": {
     "present_mode": 0,
-    "backend": 0
+    "backend": 0,
+    "avoid_gpu_irq_cpus": true,
+    "present_spin": true
   },
   "audio": {
     "master_volume": 1.0,

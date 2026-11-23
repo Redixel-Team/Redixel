@@ -141,10 +141,12 @@ mod vulkan {
         }
     }
 
-    /// Picks a host-visible, host-coherent memory type that is not device-local,
-    /// preferring one that is not host-cached either: write-combined system RAM,
-    /// which the CPU fills at full speed with sequential writes and the GPU
-    /// reads over PCIe without snooping the CPU caches.
+    /// Picks a host-visible, host-coherent memory type, preferring one that is
+    /// neither device-local nor host-cached: write-combined system RAM, which
+    /// the CPU fills at full speed with sequential writes and the GPU reads over
+    /// PCIe without snooping the CPU caches. On unified memory (integrated GPUs,
+    /// phones, software rasterisers) every type is device-local, so any
+    /// host-visible coherent type is taken.
     fn wc_memory_type(device: &vk::Device, type_bits: u32) -> Option<u32> {
         // SAFETY: the physical device belongs to the instance it is queried through.
         let properties: ash::vk::PhysicalDeviceMemoryProperties = unsafe {
@@ -156,9 +158,11 @@ mod vulkan {
 
         let required: ash::vk::MemoryPropertyFlags =
             ash::vk::MemoryPropertyFlags::HOST_VISIBLE | ash::vk::MemoryPropertyFlags::HOST_COHERENT;
-        let preferences: [ash::vk::MemoryPropertyFlags; 2] = [
+        let preferences: [ash::vk::MemoryPropertyFlags; 4] = [
             ash::vk::MemoryPropertyFlags::DEVICE_LOCAL | ash::vk::MemoryPropertyFlags::HOST_CACHED,
             ash::vk::MemoryPropertyFlags::DEVICE_LOCAL,
+            ash::vk::MemoryPropertyFlags::HOST_CACHED,
+            ash::vk::MemoryPropertyFlags::empty(),
         ];
 
         preferences.iter().find_map(|excluded: &ash::vk::MemoryPropertyFlags| {
@@ -198,7 +202,7 @@ mod vulkan {
             let requirements: ash::vk::MemoryRequirements = raw.get_buffer_memory_requirements(buffer);
             let Some(memory_type) = wc_memory_type(device, requirements.memory_type_bits) else {
                 raw.destroy_buffer(buffer, None);
-                return Err(gpu_err("no write-combined system memory type for streaming buffers"));
+                return Err(gpu_err("no host-visible coherent memory type for streaming buffers"));
             };
 
             let memory: ash::vk::DeviceMemory = match raw.allocate_memory(

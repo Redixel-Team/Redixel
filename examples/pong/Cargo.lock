@@ -1504,16 +1504,20 @@ dependencies = [
 name = "redixel-renderer"
 version = "0.6.0"
 dependencies = [
+ "ash",
  "bytemuck",
  "image",
  "js-sys",
  "log",
+ "naga",
+ "raw-window-handle",
  "redixel-core",
  "redixel-math",
  "redixel-profile",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wgpu",
+ "wgpu-hal",
  "wgpu-types",
  "winit",
 ]

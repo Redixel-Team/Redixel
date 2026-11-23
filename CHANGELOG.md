@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Runtime:** `RuntimeConfig::with_event_pump_interval` and `window.event_pump_interval_us`: frames run back to back for up to the interval (500 µs by default on desktop) before window events are dispatched, instead of one event-loop round trip per frame.
 - **Platform:** `affinity::keep_current_thread_off_gpu_irq_cpus`. On Linux the runtime moves the frame thread off the CPUs servicing GPU interrupts (`RuntimeConfig::with_gpu_irq_avoidance`, `renderer.avoid_gpu_irq_cpus`, on by default), which a frame thread could otherwise share for a whole session at half speed.
 - **Tooling:** `FPS_BENCH_QUADS` runs `fps-bench` on a single tier.
+- **Renderer:** native targets render directly on `wgpu-hal` instead of `wgpu`, trying Vulkan, Metal, DX12 and GLES in that order (filtered by `renderer.backend`) and falling back to the next when one fails to start. Frames record ahead of the previous present, which runs on a dedicated `redixel-present` thread; Vulkan streams per-frame geometry from write-combined system RAM and reuses swapchain views. The web keeps `wgpu` (WebGPU, WebGL2).
+- **Renderer:** `RendererConfig::present_spin` and `renderer.present_spin`: the frame thread busy-waits for at most 2 ms for the previous present instead of sleeping (on by default on desktop, off on Android and iOS).
 
 ### Changed
 
@@ -26,6 +28,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Renderer:** the crate's modules are private; everything public is re-exported at the root under the same names (`redixel_renderer::Vertex` rather than `redixel_renderer::pipeline::Vertex`). The CPU-side types (`Vertex`, `GlobalUniforms`, `Batch2d`, `QuadInstance`, `RendererConfig`) no longer depend on `wgpu`, only on `wgpu-types`.
 - **Runtime, Math, Tooling:** `Backends`, `PresentMode`, `AdapterInfo` and `Color` come from `wgpu-types`, the crate `wgpu` re-exports them from, so the types are unchanged. `redixel-runtime` and `fps-bench` no longer depend on `wgpu`, and `redixel-math`'s `wgpu` feature pulls in only `wgpu-types`.
 - **Core:** `RedixelError::Gpu`, for failures reported as text by a graphics backend.
+- **Renderer:** `DrawQueue`, `MeshBatch`, `ShapePipeline`, `TextureRegistry`, `UniformBlock` and `Renderer::draw_queue_mut` exist only on the web, where the renderer is still built on `wgpu`. `RendererConfig` gains a public `present_spin` field. Breaking for direct `redixel-renderer` consumers.
+- **Core:** native builds no longer depend on `wgpu`; the renderer enables `redixel-core`'s `wgpu` feature, and with it the `wgpu` error variants, only on the web.
+
+### Fixed
+
+- **Renderer:** `wgpu-hal` 30.0.2, whose Vulkan swapchain no longer passes an unreset fence to every image acquire off Windows, which the validation layers reported on every frame.
 
 ## [0.6.0]
 

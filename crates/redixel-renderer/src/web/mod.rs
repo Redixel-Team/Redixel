@@ -1,9 +1,8 @@
 //! The renderer over the `wgpu` crate: the device, the pipelines, the GPU side
 //! of the batches, the texture registry and the frame loop.
 //!
-//! On the web this is the only renderer, reaching the browser's WebGPU or
-//! WebGL2. Native targets use it too until the `wgpu-hal` backend replaces it
-//! there.
+//! Built only for the web, where it reaches the browser's WebGPU or WebGL2;
+//! native targets use [`crate::native`] instead.
 
 mod batch;
 mod device;

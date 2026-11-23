@@ -4,7 +4,7 @@
 use std::{borrow::Borrow, iter, mem::ManuallyDrop, num::NonZeroU64, sync::Arc, time::Duration};
 
 use hal::{Adapter as _, CommandEncoder as _, Device as _, Instance as _, Queue as _, Surface as _};
-use raw_window_handle::{HasDisplayHandle as _, HasWindowHandle as _};
+use raw_window_handle::HasDisplayHandle as _;
 use redixel_core::{RedixelError, TextureId};
 use redixel_math::Color;
 use redixel_profile as profile;
@@ -215,6 +215,24 @@ pub(super) struct FrameInput<'a> {
     pub(super) geometry_3d: &'a mut Geometry,
 }
 
+/// The renderer's view of one GPU backend, so the API can be chosen at run
+/// time.
+pub(super) trait Backend: Send {
+    /// Decodes `bytes` into `id`'s slot. The slot is emptied first, so a
+    /// failed reload falls back to the checkerboard rather than keeping a
+    /// stale image.
+    fn load_texture(&mut self, id: TextureId, bytes: &[u8]) -> Result<(), RedixelError>;
+    fn suspend(&mut self);
+    fn resume(&mut self, window: &Arc<dyn Window>) -> Result<(), RedixelError>;
+    fn resize(&mut self, new_size: PhysicalSize<u32>);
+    fn surface_size(&self) -> (u32, u32);
+    fn adapter_info(&self) -> &wgt::AdapterInfo;
+    fn present_mode(&self) -> wgt::PresentMode;
+    /// Records and presents one frame: 3D first, then 2D over it. The batches
+    /// in `input` are cleared, drawn or not.
+    fn render(&mut self, input: FrameInput<'_>, time: f32) -> Result<(), RedixelError>;
+}
+
 /// Synchronisation: one fence with a monotonic value. Each frame slot
 /// remembers the value its last submission signals, and `render` waits for it
 /// before touching anything the slot owns. Texture uploads wait for their own
@@ -369,25 +387,6 @@ impl<A: ApiExt> Gpu<A> {
         unsafe { upload.texture(label, width, height, texels) }
     }
 
-    /// Decodes `bytes` into `id`'s slot. The slot is emptied first, so a failed
-    /// reload falls back to the checkerboard rather than keeping a stale image.
-    pub(super) fn load_texture(&mut self, id: TextureId, bytes: &[u8]) -> Result<(), RedixelError> {
-        if let Some(old) = self.textures.replace(id, None) {
-            self.join_present();
-            // SAFETY: the queue is idle, so no frame still samples the old texture.
-            unsafe {
-                let _ = self.queue.wait_for_idle();
-                old.destroy(&self.device);
-            }
-        }
-
-        let rgba: image::RgbaImage = decode_rgba(bytes, self.max_texture)?;
-        let (width, height): (u32, u32) = rgba.dimensions();
-        let texture: GpuTexture<A> = self.upload(&format!("REDIXEL_TEXTURE_{}", id.index()), width, height, &rgba)?;
-        self.textures.replace(id, Some(texture));
-        Ok(())
-    }
-
     /// Waits for the present in flight, if any. Called before every queue or
     /// swapchain operation outside `render`.
     fn join_present(&mut self) {
@@ -403,92 +402,6 @@ impl<A: ApiExt> Gpu<A> {
         for (_, view) in self.surface_views.drain(..) {
             unsafe { self.device.destroy_texture_view(view) };
         }
-    }
-
-    pub(super) fn suspend(&mut self) {
-        self.join_present();
-        if let Some(surface) = self.surface.take() {
-            // SAFETY: the queue is idle before the views are destroyed and the
-            // surface unconfigured, and the present thread holds no reference.
-            unsafe {
-                let _ = self.queue.wait_for_idle();
-                self.drop_surface_views();
-                surface.unconfigure(&self.device);
-            }
-        }
-    }
-
-    pub(super) fn resume(&mut self, window: &Arc<dyn Window>) -> Result<(), RedixelError> {
-        if self.surface.is_none() {
-            let surface: A::Surface = create_surface::<A>(&self.instance, window)?;
-            // SAFETY: the stored configuration was resolved on this adapter; a
-            // mismatch with the new surface is reported as an error.
-            unsafe { surface.configure(&self.device, &self.surface_config) }.map_err(gpu_err)?;
-            self.surface = Some(Arc::new(surface));
-        }
-
-        Ok(())
-    }
-
-    pub(super) fn resize(&mut self, new_size: PhysicalSize<u32>) {
-        if new_size.width == 0 || new_size.height == 0 {
-            return;
-        }
-
-        self.surface_config.extent.width = new_size.width;
-        self.surface_config.extent.height = new_size.height;
-        self.join_present();
-
-        // SAFETY: the queue is idle, so neither the swapchain nor the old
-        // depth attachment is in use.
-        unsafe {
-            let _ = self.queue.wait_for_idle();
-            self.drop_surface_views();
-            if let Some(surface) = &self.surface
-                && let Err(e) = surface.configure(&self.device, &self.surface_config)
-            {
-                log::error!("Surface reconfiguration failed: {e}");
-            }
-
-            match Depth::new(&self.device, self.surface_config.extent) {
-                Ok(depth) => {
-                    ManuallyDrop::take(&mut self.depth).destroy(&self.device);
-                    self.depth = ManuallyDrop::new(depth);
-                    self.depth_fresh = true;
-                }
-                Err(e) => log::error!("Depth buffer recreation failed: {e}"),
-            }
-        }
-    }
-
-    pub(super) fn surface_size(&self) -> (u32, u32) {
-        (self.surface_config.extent.width, self.surface_config.extent.height)
-    }
-
-    pub(super) fn adapter_info(&self) -> &wgt::AdapterInfo {
-        &self.adapter_info
-    }
-
-    pub(super) fn present_mode(&self) -> wgt::PresentMode {
-        self.surface_config.present_mode
-    }
-
-    /// Records and presents one frame: 3D first, then 2D over it. The batches
-    /// in `input` are cleared, drawn or not.
-    ///
-    /// Everything that does not touch the swapchain (fence wait, uniforms,
-    /// uploads, opening the encoder) runs before joining the previous present,
-    /// so it overlaps with it.
-    pub(super) fn render(&mut self, input: FrameInput<'_>, time: f32) -> Result<(), RedixelError> {
-        let FrameInput {
-            clear,
-            batch_2d,
-            geometry_3d,
-        } = input;
-        let drawn: Result<(), RedixelError> = self.record(clear, batch_2d, geometry_3d, time);
-        batch_2d.clear();
-        geometry_3d.clear();
-        drawn
     }
 
     fn record(
@@ -699,6 +612,105 @@ impl<A: ApiExt> Gpu<A> {
     }
 }
 
+impl<A: ApiExt> Backend for Gpu<A> {
+    fn load_texture(&mut self, id: TextureId, bytes: &[u8]) -> Result<(), RedixelError> {
+        if let Some(old) = self.textures.replace(id, None) {
+            self.join_present();
+            // SAFETY: the queue is idle, so no frame still samples the old texture.
+            unsafe {
+                let _ = self.queue.wait_for_idle();
+                old.destroy(&self.device);
+            }
+        }
+
+        let rgba: image::RgbaImage = decode_rgba(bytes, self.max_texture)?;
+        let (width, height): (u32, u32) = rgba.dimensions();
+        let texture: GpuTexture<A> = self.upload(&format!("REDIXEL_TEXTURE_{}", id.index()), width, height, &rgba)?;
+        self.textures.replace(id, Some(texture));
+        Ok(())
+    }
+
+    fn suspend(&mut self) {
+        self.join_present();
+        if let Some(surface) = self.surface.take() {
+            // SAFETY: the queue is idle before the views are destroyed and the
+            // surface unconfigured, and the present thread holds no reference.
+            unsafe {
+                let _ = self.queue.wait_for_idle();
+                self.drop_surface_views();
+                surface.unconfigure(&self.device);
+            }
+        }
+    }
+
+    fn resume(&mut self, window: &Arc<dyn Window>) -> Result<(), RedixelError> {
+        if self.surface.is_none() {
+            let surface: A::Surface = create_surface::<A>(&self.instance, window)?;
+            // SAFETY: the stored configuration was resolved on this adapter; a
+            // mismatch with the new surface is reported as an error.
+            unsafe { surface.configure(&self.device, &self.surface_config) }.map_err(gpu_err)?;
+            self.surface = Some(Arc::new(surface));
+        }
+
+        Ok(())
+    }
+
+    fn resize(&mut self, new_size: PhysicalSize<u32>) {
+        if new_size.width == 0 || new_size.height == 0 {
+            return;
+        }
+
+        self.surface_config.extent.width = new_size.width;
+        self.surface_config.extent.height = new_size.height;
+        self.join_present();
+
+        // SAFETY: the queue is idle, so neither the swapchain nor the old
+        // depth attachment is in use.
+        unsafe {
+            let _ = self.queue.wait_for_idle();
+            self.drop_surface_views();
+            if let Some(surface) = &self.surface
+                && let Err(e) = surface.configure(&self.device, &self.surface_config)
+            {
+                log::error!("Surface reconfiguration failed: {e}");
+            }
+
+            match Depth::new(&self.device, self.surface_config.extent) {
+                Ok(depth) => {
+                    ManuallyDrop::take(&mut self.depth).destroy(&self.device);
+                    self.depth = ManuallyDrop::new(depth);
+                    self.depth_fresh = true;
+                }
+                Err(e) => log::error!("Depth buffer recreation failed: {e}"),
+            }
+        }
+    }
+
+    fn surface_size(&self) -> (u32, u32) {
+        (self.surface_config.extent.width, self.surface_config.extent.height)
+    }
+
+    fn adapter_info(&self) -> &wgt::AdapterInfo {
+        &self.adapter_info
+    }
+
+    fn present_mode(&self) -> wgt::PresentMode {
+        self.surface_config.present_mode
+    }
+
+    fn render(&mut self, input: FrameInput<'_>, time: f32) -> Result<(), RedixelError> {
+        let FrameInput {
+            clear,
+            batch_2d,
+            geometry_3d,
+        } = input;
+        let drawn: Result<(), RedixelError> = self.record(clear, batch_2d, geometry_3d, time);
+        batch_2d.clear();
+        geometry_3d.clear();
+        drawn
+    }
+}
+
 impl<A: ApiExt> Drop for Gpu<A> {
     fn drop(&mut self) {
         self.join_present();
@@ -834,7 +846,20 @@ unsafe fn draw_2d<A: ApiExt>(
 
 fn create_surface<A: hal::Api>(instance: &A::Instance, window: &Arc<dyn Window>) -> Result<A::Surface, RedixelError> {
     let display: raw_window_handle::RawDisplayHandle = window.display_handle().map_err(gpu_err)?.as_raw();
-    let handle: raw_window_handle::RawWindowHandle = window.window_handle().map_err(gpu_err)?.as_raw();
+    // Windows refuses `window_handle` off the event-loop thread, and the
+    // renderer is built on a background one; the `Arc` keeps the window alive.
+    #[cfg(target_os = "windows")]
+    let handle: raw_window_handle::RawWindowHandle = {
+        use winit::platform::windows::WindowExtWindows as _;
+        // SAFETY: the handle is only used to create the surface, while `Gpu`
+        // holds the window alive.
+        unsafe { window.window_handle_any_thread() }.map_err(gpu_err)?.as_raw()
+    };
+    #[cfg(not(target_os = "windows"))]
+    let handle: raw_window_handle::RawWindowHandle = {
+        use raw_window_handle::HasWindowHandle as _;
+        window.window_handle().map_err(gpu_err)?.as_raw()
+    };
     // SAFETY: `Gpu` holds the window's `Arc` and drops the surface before it.
     unsafe { instance.create_surface(display, handle) }.map_err(gpu_err)
 }

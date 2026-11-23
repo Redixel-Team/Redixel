@@ -93,7 +93,19 @@ pub(super) trait ApiExt: hal::Api {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+/// DX12's `MAP_WRITE` buffers live in an upload heap and Metal's in shared
+/// memory, both system RAM the GPU reads directly, so the defaults are already
+/// the fast path there.
+#[cfg(any(target_os = "linux", target_os = "android", target_os = "windows"))]
+impl ApiExt for hal::api::Gles {}
+
+#[cfg(target_os = "windows")]
+impl ApiExt for hal::api::Dx12 {}
+
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+impl ApiExt for hal::api::Metal {}
+
+#[cfg(any(target_os = "linux", target_os = "android", target_os = "windows"))]
 mod vulkan {
     use ash::vk::Handle as _;
     use wgpu_hal::vulkan as vk;

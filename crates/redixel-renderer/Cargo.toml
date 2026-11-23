@@ -7,6 +7,11 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 
+[features]
+# The native renderer built directly on `wgpu-hal` (Vulkan). Temporary: once
+# every native backend is ported it becomes the only native renderer.
+hal = ["dep:wgpu-hal", "dep:naga", "dep:ash", "dep:raw-window-handle"]
+
 [dependencies]
 # Internal crates
 redixel-core = { workspace = true, features = ["wgpu"] }
@@ -26,3 +31,9 @@ wgpu = { workspace = true, features = ["webgl"] }
 js-sys = { workspace = true }
 wasm-bindgen = { workspace = true }
 wasm-bindgen-futures = { workspace = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+wgpu-hal = { workspace = true, features = ["vulkan"], optional = true }
+naga = { workspace = true, features = ["wgsl-in"], optional = true }
+ash = { workspace = true, optional = true }
+raw-window-handle = { workspace = true, optional = true }

@@ -11,6 +11,7 @@ repository.workspace = true
 net = ["dep:redixel-net"]
 audio = ["dep:redixel-audio"]
 profiling = ["redixel-profile/profiling"]
+hal = ["redixel-renderer/hal"]
 
 [dependencies]
 # Internal crates

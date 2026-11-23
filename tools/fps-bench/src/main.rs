@@ -261,8 +261,9 @@ mod bench {
                 fullscreen: false,
             },
             RendererConfig {
-                backends:     Backends::all(),
+                backends: Backends::all(),
                 present_mode: PresentMode::Immediate,
+                ..RendererConfig::default()
             },
             0.0,
             60.0,

@@ -4,7 +4,7 @@ use std::{sync::RwLockReadGuard, time::Duration};
 
 use redixel_core::{AudioConfig, Game, RedixelError};
 use redixel_platform::window::WindowConfig;
-use redixel_renderer::RendererConfig;
+use redixel_renderer::{DEFAULT_PRESENT_SPIN, RendererConfig};
 use redixel_runtime::{
     DEFAULT_AVOID_GPU_IRQ_CPUS, DEFAULT_EVENT_PUMP_INTERVAL, DEFAULT_TICKRATE, EngineSettings, RawBackend,
     RawPresentMode, Runtime, RuntimeConfig,
@@ -49,6 +49,7 @@ pub fn build_config() -> RuntimeConfig {
         RendererConfig {
             backends:     settings.get_path("renderer.backend", RawBackend(0)).into(),
             present_mode: settings.get_path("renderer.present_mode", RawPresentMode(0)).into(),
+            present_spin: settings.get_path("renderer.present_spin", DEFAULT_PRESENT_SPIN),
         },
         settings.get_path("window.target_fps", 60.0),
         settings.get_path("engine.tickrate", DEFAULT_TICKRATE),

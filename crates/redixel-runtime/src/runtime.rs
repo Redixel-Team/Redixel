@@ -783,10 +783,7 @@ mod tests {
                 fullscreen: false,
                 title:      String::from("TEST_TITLE"),
             },
-            RendererConfig {
-                backends:     wgpu_types::Backends::all(),
-                present_mode: wgpu_types::PresentMode::AutoVsync,
-            },
+            RendererConfig::default(),
             60.0,
             60.0,
         )

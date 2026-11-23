@@ -12,17 +12,28 @@ const CAMERA_FAR: f32 = 100.0;
 
 /// All renderer settings resolved from `config.json` by `redixel-runtime`
 /// and injected at construction time. The renderer never touches the config system.
+///
+/// - `present_spin`: whether the frame thread busy-waits, for at most a couple
+///   of milliseconds, for the previous frame's present instead of sleeping.
+///   Spinning saves the wake-up latency at the cost of a busy core while
+///   waiting, so it is on by default on desktop and off on mobile. Only the
+///   `hal` renderer presents on its own thread, so only it reads this.
 #[derive(Debug, Clone)]
 pub struct RendererConfig {
     pub backends:     Backends,
     pub present_mode: PresentMode,
+    pub present_spin: bool,
 }
+
+/// [`RendererConfig::present_spin`] unless configured.
+pub const DEFAULT_PRESENT_SPIN: bool = !cfg!(any(target_os = "android", target_os = "ios"));
 
 impl Default for RendererConfig {
     fn default() -> Self {
         Self {
             backends:     Backends::all(),
             present_mode: PresentMode::AutoVsync,
+            present_spin: DEFAULT_PRESENT_SPIN,
         }
     }
 }

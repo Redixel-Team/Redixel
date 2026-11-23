@@ -357,7 +357,7 @@ impl<A: ApiExt> Gpu<A> {
             last_submitted,
             surface_config,
             surface_views: Vec::new(),
-            presenter: Presenter::spawn(config.present_spin)?,
+            presenter: Presenter::new(config.present_spin),
             surface: Some(Arc::new(surface)),
             queue: Arc::new(queue),
             device,

@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Renderer:** the native present thread starts from the frame thread, so it inherits the frame thread's GPU interrupt avoidance instead of running on any CPU.
 - **Renderer:** `wgpu-hal` 30.0.2, whose Vulkan swapchain no longer passes an unreset fence to every image acquire off Windows, which the validation layers reported on every frame.
 
 ## [0.6.0]

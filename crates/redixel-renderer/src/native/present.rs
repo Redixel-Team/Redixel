@@ -37,24 +37,41 @@ pub(super) struct PresentJob<A: hal::Api> {
 /// acquire, submit or idle wait. The worker releases its queue and surface
 /// handles before reporting, so after a join the frame thread holds the only
 /// references again.
+///
+/// The thread starts on the first [`submit`](Self::submit), from the frame
+/// thread, so it inherits that thread's CPU affinity: the runtime keeps the
+/// frame thread off the CPUs servicing GPU interrupts, and the renderer itself
+/// is built on another thread before that happens.
 pub(super) struct Presenter<A: hal::Api> {
     jobs:    Option<Sender<PresentJob<A>>>,
     done:    Receiver<PresentResult>,
+    idle:    Option<(Receiver<PresentJob<A>>, Sender<PresentResult>)>,
     pending: bool,
     spin:    bool,
     thread:  Option<JoinHandle<()>>,
 }
 
 impl<A: hal::Api> Presenter<A> {
-    /// Starts the present thread. With `spin`, [`join`](Self::join) busy-waits
-    /// for up to [`SPIN_BUDGET`] before blocking, which saves the wake-up
-    /// latency at the cost of a busy core; the present thread itself always
-    /// blocks, since spinning there starves the frame thread.
-    pub(super) fn spawn(spin: bool) -> Result<Self, RedixelError> {
+    /// With `spin`, [`join`](Self::join) busy-waits for up to [`SPIN_BUDGET`]
+    /// before blocking, which saves the wake-up latency at the cost of a busy
+    /// core; the present thread itself always blocks, since spinning there
+    /// starves the frame thread.
+    pub(super) fn new(spin: bool) -> Self {
         let (jobs, inbox): (Sender<PresentJob<A>>, Receiver<PresentJob<A>>) = mpsc::channel();
         let (report, done): (Sender<PresentResult>, Receiver<PresentResult>) = mpsc::channel();
 
-        let thread: JoinHandle<()> = thread::Builder::new()
+        Self {
+            jobs: Some(jobs),
+            done,
+            idle: Some((inbox, report)),
+            pending: false,
+            spin,
+            thread: None,
+        }
+    }
+
+    fn start(inbox: Receiver<PresentJob<A>>, report: Sender<PresentResult>) -> Result<JoinHandle<()>, RedixelError> {
+        thread::Builder::new()
             .name(String::from("redixel-present"))
             .spawn(move || {
                 for job in inbox {
@@ -75,18 +92,14 @@ impl<A: hal::Api> Presenter<A> {
                     }
                 }
             })
-            .map_err(gpu_err)?;
-
-        Ok(Self {
-            jobs: Some(jobs),
-            done,
-            pending: false,
-            spin,
-            thread: Some(thread),
-        })
+            .map_err(gpu_err)
     }
 
     pub(super) fn submit(&mut self, job: PresentJob<A>) -> Result<(), RedixelError> {
+        if let Some((inbox, report)) = self.idle.take() {
+            self.thread = Some(Self::start(inbox, report)?);
+        }
+
         let jobs: &Sender<PresentJob<A>> = self.jobs.as_ref().ok_or_else(|| gpu_err("present thread is stopped"))?;
         jobs.send(job)
             .map_err(|_: mpsc::SendError<PresentJob<A>>| gpu_err("present thread is stopped"))?;
